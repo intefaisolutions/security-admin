@@ -590,9 +590,13 @@ const SuperSubAdmins = () => {
                       <td>
                         {item.role === "super_admin"
                           ? "Super Admin"
-                          : item.role === "sub_admin"
-                            ? "Sub Admin"
-                            : "Admin"}
+                          : item.role === "super_sub_admin"
+                            ? "Super Sub Admin"
+                            : item.role === "sub_admin"
+                              ? "Sub Admin"
+                              : item.role === "secretary"
+                                ? "Society Secretary"
+                                : "Admin"}
                       </td>
                       <td>
                         {item.plan?.billingCycle

@@ -276,7 +276,6 @@ const Layout = () => {
               maxWidth: "400px", 
               width: "100%", 
               position: "relative",
-              display: window.innerWidth > 768 || isSearchExpanded ? "flex" : "none",
               margin: 0
             }}
           >

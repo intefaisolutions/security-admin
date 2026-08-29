@@ -3,24 +3,26 @@
    ============================================================================ */
 
 :root {
-  /* Color Palette - Modern Dark Slate & Indigo Accents */
-  --bg-dark: #0f172a;
-  --bg-card: #1e293b;
-  --bg-card-hover: #273549;
-  --bg-sidebar: #0f172a;
-  --bg-topbar: #1e293b;
-  --bg-input: #0f172a;
+  /* Color Palette - Next.js/Node.js Aesthetic */
+  --bg-dark: #000000;
+  --bg-card: #1A1A1A;
+  --bg-card-hover: #162821;
+  --bg-sidebar: #000000;
+  --bg-topbar: #000000;
+  --bg-input: #000000;
+  --bg-modal: #0D121C;
+  --bg-dropdown: #0D121C;
 
-  --border-color: #334155;
-  --border-color-light: #475569;
+  --border-color: #363435;
+  --border-color-light: #363435;
 
   --primary: #6366f1;
   --primary-hover: #4f46e5;
   --primary-light: rgba(99, 102, 241, 0.15);
 
-  --text-main: #f8fafc;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
+  --text-main: #FAFAFA;
+  --text-secondary: rgba(250, 250, 250, 0.6);
+  --text-muted: rgba(250, 250, 250, 0.5);
 
   /* Status Colors */
   --success: #10b981;
@@ -162,31 +164,39 @@ textarea {
 }
 
 /* Scrollbar Customization */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-color) var(--bg-dark);
+}
+
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
 }
 ::-webkit-scrollbar-track {
   background: var(--bg-dark);
 }
 ::-webkit-scrollbar-thumb {
   background: var(--border-color);
-  border-radius: 4px;
+  border-radius: 6px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--border-color-light);
+  background: var(--bg-card); /* maps to #1A1A1A in dark mode, adapting automatically in light mode */
 }
 
 /* App Layout Grid */
 .app-layout {
   display: flex;
   flex-direction: column;
+  height: 100vh;
   min-height: 100vh;
+  overflow: hidden;
 }
 
 /* Topbar Header */
 .topbar {
   height: 64px;
+  flex-shrink: 0;
   background-color: var(--bg-topbar);
   border-bottom: 1px solid var(--border-color);
   display: flex;
@@ -194,7 +204,6 @@ textarea {
   justify-content: space-between;
   padding: 0 24px;
   position: sticky;
-  top: 0;
   z-index: 40;
 }
 
@@ -297,6 +306,8 @@ textarea {
 .main-wrapper {
   display: flex;
   flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .sidebar {
@@ -310,6 +321,7 @@ textarea {
   top: 64px;
   height: calc(100vh - 64px);
   overflow: hidden;
+  flex-shrink: 0;
 }
 
 .nav-menu {
@@ -412,9 +424,15 @@ textarea {
 
 .content-container {
   flex: 1;
+  min-width: 0;
+  min-height: 0;
   padding: 32px;
   background-color: var(--bg-dark);
-  max-width: 1400px;
+  /* max-width: 1400px; */
+  width: 100%;
+  max-width: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 /* Page Headers & Cards */
@@ -469,6 +487,7 @@ textarea {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 20px;
+  min-width: 0;
 }
 
 .stat-card {
@@ -556,6 +575,7 @@ textarea {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: 20px;
+  min-width: 0;
 }
 
 .info-list {
@@ -672,6 +692,7 @@ textarea {
 
 .data-table {
   width: 100%;
+  min-width: 640px;
   border-collapse: collapse;
   text-align: left;
   font-size: 0.9rem;
@@ -1897,7 +1918,11 @@ textarea {
 
 /* Wallet styles */
 .wallet-balance-card {
-  background: linear-gradient(135deg, var(--primary-light) 0%, rgba(99, 102, 241, 0.05) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--primary-light) 0%,
+    rgba(99, 102, 241, 0.05) 100%
+  );
   border: 1px solid rgba(99, 102, 241, 0.3);
   border-radius: var(--radius-md);
   padding: 24px;
@@ -2154,6 +2179,11 @@ body.pref-compact-tables .data-table td {
     padding: 0 16px;
   }
 
+  .topbar-right {
+    gap: 12px;
+    min-width: 0;
+  }
+
   .brand-title {
     font-size: 1rem;
   }
@@ -2168,15 +2198,20 @@ body.pref-compact-tables .data-table td {
 
   .sidebar {
     width: 100%;
-    left: -100%;
+    left: 0;
+    transform: translateX(-100%);
   }
 
   .sidebar.mobile-open {
-    left: 0;
+    transform: translateX(0);
   }
 
   .content-container {
     padding: 16px 12px;
+    flex: 1;
+    width: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
   }
 
   /* Cards & Grids */
@@ -2188,6 +2223,16 @@ body.pref-compact-tables .data-table td {
   .dashboard-content-grid {
     grid-template-columns: 1fr;
     gap: 16px;
+  }
+
+  .page-header > div {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .page-title,
+  .page-description {
+    overflow-wrap: anywhere;
   }
 
   .card-box {
@@ -2323,16 +2368,17 @@ body.pref-compact-tables .data-table td {
 
   .content-container {
     padding: 24px 20px;
+    width: 0;
   }
 
   /* Cards & Grids */
   .stats-grid {
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 16px;
   }
 
   .dashboard-content-grid {
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 16px;
   }
 
@@ -2363,15 +2409,16 @@ body.pref-compact-tables .data-table td {
 
   .content-container {
     padding: 28px 24px;
+    width: 0;
   }
 
   /* Cards & Grids */
   .stats-grid {
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .dashboard-content-grid {
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   /* Page Header */
@@ -2384,6 +2431,10 @@ body.pref-compact-tables .data-table td {
 @media (min-width: 1025px) and (max-width: 1440px) {
   .content-container {
     padding: 32px 28px;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
@@ -2408,17 +2459,22 @@ body.pref-compact-tables .data-table td {
     display: block;
   }
 
+  .topbar-center:not(:has(.search-box.expanded)) {
+    display: none !important;
+  }
+
   .sidebar {
     position: fixed;
     top: 56px;
-    left: -280px;
+    left: 0;
     z-index: 50;
     transition: var(--transition-normal);
     height: calc(100vh - 56px);
+    transform: translateX(-100%);
   }
 
   .sidebar.mobile-open {
-    left: 0;
+    transform: translateX(0);
     box-shadow: var(--shadow-lg);
   }
 

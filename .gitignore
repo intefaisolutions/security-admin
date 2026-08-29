@@ -10,7 +10,7 @@ dist-ssr/
 .env
 .env.local
 .env.*.local
-
+env_dump.txt
 # IDE & OS files
 .DS_Store
 Thumbs.db
