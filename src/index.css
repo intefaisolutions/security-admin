@@ -687,7 +687,6 @@ textarea {
   width: 100%;
   overflow-x: auto;
   border-radius: var(--radius-lg);
-  -webkit-overflow-scrolling: touch;
 }
 
 .data-table {
@@ -2242,7 +2241,6 @@ body.pref-compact-tables .data-table td {
   /* Tables */
   .table-responsive {
     overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
   }
 
   .data-table {
