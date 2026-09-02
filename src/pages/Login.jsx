@@ -27,6 +27,10 @@ const Login = () => {
       setErrorMsg('Please enter both phone number and password.');
       return;
     }
+    if (!requiresLicenseKey && !/^\d{10}$/.test(phone.trim())) {
+      setErrorMsg('Phone number must be exactly 10 digits.');
+      return;
+    }
 
     if (requiresLicenseKey && !licenseKey.trim()) {
       setErrorMsg('Please enter your License Key.');
@@ -153,7 +157,7 @@ const Login = () => {
                     type="text"
                     placeholder="Enter registered phone number"
                     value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
+                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                     disabled={isSubmitting}
                     required
                   />

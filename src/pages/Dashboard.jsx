@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import RevenueChart from '../components/RevenueChart';
 import {
   getDashboardStats,
   getSocieties,
@@ -13,6 +15,7 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import { getErrorMessage } from '../utils/getErrorMessage';
 
 const Dashboard = () => {
+  const { user } = useAuth();
   const location = useLocation();
   const isPasswordChanged = location.state?.passwordChanged;
 
@@ -23,7 +26,11 @@ const Dashboard = () => {
     familyCount: 0,
     guardsCount: 0,
     servicesCount: 0,
+    revenueGoal: 0,
+    recentTransactions: [],
   });
+  
+  const [revenueStats, setRevenueStats] = useState(null);
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -61,6 +68,10 @@ const Dashboard = () => {
         famCount = extractCount(dashData, ['familyCount', 'totalFamilyMembers', 'familyMembersCount', 'familyMembers', 'stats.totalFamilyMembers']) ?? 0;
         grdCount = extractCount(dashData, ['guardsCount', 'totalGuards', 'guards', 'stats.totalGuards', 'counts.guards']) ?? 0;
         srvCount = extractCount(dashData, ['servicesCount', 'totalServices', 'services', 'stats.totalServices', 'counts.services']) ?? 0;
+        
+        if (dashData.revenueGoal !== undefined) {
+          setStats(prev => ({ ...prev, revenueGoal: dashData.revenueGoal, recentTransactions: dashData.recentTransactions || [] }));
+        }
       }
     } catch (err) {
       console.warn('Dashboard stats endpoint failed, falling back to direct collection counts:', err);
@@ -99,14 +110,26 @@ const Dashboard = () => {
       console.error('Fallback list count error:', fallbackErr);
     }
 
-    setStats({
+    setStats(prev => ({
+      ...prev,
       societiesCount: socCount,
       adminsCount: admCount,
       residentsCount: resCount,
       familyCount: famCount,
       guardsCount: grdCount,
       servicesCount: srvCount,
-    });
+    }));
+    
+    // Also fetch revenue stats for the chart if super_admin
+    if (user?.role === 'super_admin') {
+      try {
+        const { getRevenueStats } = await import('../api/admin');
+        const revData = await getRevenueStats();
+        setRevenueStats(revData);
+      } catch (err) {
+        console.warn('Failed to fetch revenue stats for chart', err);
+      }
+    }
 
     setIsLoading(false);
   };
@@ -117,6 +140,19 @@ const Dashboard = () => {
 
   return (
     <div className="page-container">
+      {user?.role === 'super_admin' && (
+        <div className="card-box" style={{ padding: '24px', marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <h1 style={{ fontSize: '1.5rem', marginBottom: '8px', color: 'var(--text-main)' }}>Welcome back, {user?.name || 'Super Admin'}! 👋</h1>
+            <p style={{ color: 'var(--text-muted)', margin: 0 }}>Here's an overview of your platform's performance today.</p>
+          </div>
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <Link to="/admins" className="btn btn-secondary">Manage Admins</Link>
+            <Link to="/revenue-overview" className="btn btn-primary">View Reports</Link>
+          </div>
+        </div>
+      )}
+
       <div className="page-header">
         <div>
           <h1 className="page-title">Dashboard Statistics</h1>
@@ -272,6 +308,79 @@ const Dashboard = () => {
               </Link>
             </div>
           </div>
+        </div>
+      )}
+
+      {!isLoading && user?.role === 'super_admin' && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: '24px', marginTop: '24px' }}>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            {/* Revenue Trends */}
+            <div style={{ height: '350px' }}>
+              <RevenueChart transactions={revenueStats?.allTransactions || []} compact={true} />
+            </div>
+            
+            {/* Recent Payments */}
+            <div className="card-box" style={{ padding: '20px' }}>
+              <h3 style={{ margin: '0 0 16px 0', fontSize: '1.1rem', color: 'var(--text-main)' }}>Recent Payments</h3>
+              <div className="table-responsive">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Transaction ID</th>
+                      <th>Admin Name</th>
+                      <th>Date</th>
+                      <th>Amount</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stats.recentTransactions?.length > 0 ? stats.recentTransactions.map(tx => (
+                      <tr key={tx.id}>
+                        <td>{tx.id.substring(0, 8)}...</td>
+                        <td>{tx.user?.name || 'Unknown'}</td>
+                        <td>{new Date(tx.createdAt).toLocaleDateString()}</td>
+                        <td>₹{tx.amount}</td>
+                        <td>
+                          <span className={`badge badge-${
+                            tx.status === 'completed' ? 'success' : 
+                            tx.status === 'pending' ? 'warning' : 'danger'
+                          }`}>
+                            {tx.status}
+                          </span>
+                        </td>
+                      </tr>
+                    )) : (
+                      <tr><td colSpan="5" className="text-center">No recent payments</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            {/* Revenue Goal Progress */}
+            <div className="card-box" style={{ padding: '20px' }}>
+              <h3 style={{ margin: '0 0 16px 0', fontSize: '1.1rem', color: 'var(--text-main)' }}>Revenue Goal</h3>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Current Period</span>
+                <span style={{ fontWeight: 'bold', color: 'var(--text-main)' }}>₹{revenueStats?.currentPeriodRevenue || 0}</span>
+              </div>
+              <div style={{ width: '100%', height: '8px', background: 'var(--border-color)', borderRadius: '4px', overflow: 'hidden' }}>
+                <div style={{ 
+                  height: '100%', 
+                  width: `${Math.min(((revenueStats?.currentPeriodRevenue || 0) / (stats.revenueGoal || 1)) * 100, 100)}%`,
+                  background: 'var(--primary-color)' 
+                }}></div>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', fontSize: '0.85rem' }}>
+                <span style={{ color: 'var(--text-muted)' }}>0</span>
+                <span style={{ color: 'var(--text-muted)' }}>Target: ₹{stats.revenueGoal}</span>
+              </div>
+            </div>
+          </div>
+          
         </div>
       )}
     </div>

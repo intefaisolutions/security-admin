@@ -39,14 +39,24 @@ const ACCESS_OPTIONS = [
 
 const PLAN_CYCLE_OPTIONS = [
   { key: "monthly", label: "Monthly" },
+  { key: "quarterly", label: "Quarterly" },
   { key: "yearly", label: "Yearly" },
 ];
 
 const SubAdmins = () => {
   const { user } = useAuth();
   const isSuperAdmin = user?.role === "super_admin";
-  const canManageAdmins = ["super_admin", "super_sub_admin", "admin", "sub_admin"].includes(user?.role);
-  const canManageThisType = ["super_admin", "super_sub_admin", "admin"].includes(user?.role);
+  const canManageAdmins = [
+    "super_admin",
+    "super_sub_admin",
+    "admin",
+    "sub_admin",
+  ].includes(user?.role);
+  const canManageThisType = [
+    "super_admin",
+    "super_sub_admin",
+    "admin",
+  ].includes(user?.role);
   const userSocietyId =
     typeof user?.society === "object"
       ? user?.society?._id || user?.society?.id || ""
@@ -61,11 +71,17 @@ const SubAdmins = () => {
     () => admins.filter((adminItem) => adminItem.role === "sub_admin").length,
     [admins],
   );
-  const canCreateSubAdmin = user?.role === "admin" ? (planLimits.maxSubAdmins > currentSubAdminCount || !planLimits.maxSubAdmins) : true;
+  const canCreateSubAdmin =
+    user?.role === "admin"
+      ? planLimits.maxSubAdmins > currentSubAdminCount ||
+        !planLimits.maxSubAdmins
+      : true;
 
   // Search & Pagination
   const [searchParams] = useSearchParams();
-  const [searchTerm, setSearchTerm] = useState(searchParams.get("search") || "");
+  const [searchTerm, setSearchTerm] = useState(
+    searchParams.get("search") || "",
+  );
   useEffect(() => {
     const querySearch = searchParams.get("search");
     if (querySearch !== null) {
@@ -84,15 +100,18 @@ const SubAdmins = () => {
   const [formPhone, setFormPhone] = useState("");
   const [formEmail, setFormEmail] = useState("");
   const [formPassword, setFormPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [formConfirmPassword, setFormConfirmPassword] = useState("");
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [formAssignedAdmin, setFormAssignedAdmin] = useState("");
   const [licenseModalData, setLicenseModalData] = useState(null);
-  const [formSociety, setFormSociety] = useState("");
+  const [formSocieties, setFormSocieties] = useState([]);
   const [formRole, setFormRole] = useState("sub_admin");
   const [formPermissions, setFormPermissions] = useState([]);
   const [formPlanCycle, setFormPlanCycle] = useState("monthly");
   const [formPlanId, setFormPlanId] = useState("");
-  const [formCanViewAllSocietiesSOS, setFormCanViewAllSocietiesSOS] = useState(false);
+  const [formCanViewAllSocietiesSOS, setFormCanViewAllSocietiesSOS] =
+    useState(false);
   const [plans, setPlans] = useState([]);
   const [plansLoading, setPlansLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -109,7 +128,7 @@ const SubAdmins = () => {
     try {
       const data = await getAdmins();
       const adminList = Array.isArray(data) ? data : [];
-      setAdmins(adminList.filter(a => a.role === "sub_admin"));
+      setAdmins(adminList.filter((a) => a.role === "sub_admin"));
     } catch (err) {
       console.error("Failed to load admins:", err);
       setError(getErrorMessage(err, "Failed to load admin accounts list."));
@@ -151,9 +170,13 @@ const SubAdmins = () => {
       const name = admin.name || "";
       const phone = admin.phone || "";
       const societyName =
-        typeof admin.society === "object"
-          ? admin.society?.name || ""
-          : admin.society || "";
+        Array.isArray(admin.societies) && admin.societies.length > 0
+          ? admin.societies
+              .map((s) => (typeof s === "object" ? s?.name : s))
+              .join(", ")
+          : typeof admin.society === "object"
+            ? admin.society?.name || ""
+            : admin.society || "";
       return (
         name.toLowerCase().includes(term) ||
         phone.toLowerCase().includes(term) ||
@@ -203,7 +226,7 @@ const SubAdmins = () => {
     setFormPlanCycle("monthly");
     setFormPlanId("");
     setFormCanViewAllSocietiesSOS(false);
-    setFormSociety(isSuperAdmin ? "" : userSocietyId);
+    setFormSocieties(isSuperAdmin ? [] : userSocietyId ? [userSocietyId] : []);
     setFormError(null);
     setIsModalOpen(true);
   };
@@ -222,11 +245,12 @@ const SubAdmins = () => {
     setFormPlanId(
       admin.plan?.planId || admin.plan?._id || admin.plan?.id || "",
     );
-    setFormSociety(
-      typeof admin.society === "object"
-        ? admin.society?._id || admin.society?.id || ""
-        : admin.society || "",
-    );
+    const adminSocieties = admin.societies && admin.societies.length > 0
+      ? admin.societies.map((s) => s._id || s.id)
+      : admin.society 
+        ? [typeof admin.society === "object" ? admin.society._id || admin.society.id : admin.society]
+        : [];
+    setFormSocieties(adminSocieties);
     setFormCanViewAllSocietiesSOS(admin.canViewAllSocietiesSOS || false);
     setFormError(null);
     setIsModalOpen(true);
@@ -242,7 +266,7 @@ const SubAdmins = () => {
   };
 
   const selectedSocietySecretary = useMemo(() => {
-    if (!formSociety) return null;
+    if (!formSocieties || formSocieties.length === 0) return null;
 
     return admins.find((adminItem) => {
       const adminSocietyId =
@@ -253,11 +277,11 @@ const SubAdmins = () => {
       const currentId = editingAdmin?._id || editingAdmin?.id;
       return (
         adminItem.role === "secretary" &&
-        adminSocietyId === formSociety &&
+        formSocieties.includes(adminSocietyId) &&
         adminId !== currentId
       );
     });
-  }, [admins, formSociety, editingAdmin]);
+  }, [admins, formSocieties, editingAdmin]);
 
   const handleSaveAdmin = async (e) => {
     e.preventDefault();
@@ -265,22 +289,29 @@ const SubAdmins = () => {
       setFormError("Please enter a phone number.");
       return;
     }
+    if (!/^\d{10}$/.test(formPhone.trim())) {
+      setFormError("Phone number must be exactly 10 digits.");
+      return;
+    }
 
     if (!formName.trim()) {
       setFormError("Please enter the admin's name.");
       return;
     }
-    
+
     if (formRole === "admin" && !formEmail.trim()) {
       setFormError("Please enter an email address for System Admins.");
       return;
     }
-    if (formRole === "admin" && formEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formEmail.trim())) {
+    if (
+      formRole === "admin" &&
+      formEmail.trim() &&
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formEmail.trim())
+    ) {
       setFormError("Please enter a valid email address.");
       return;
     }
 
-    
     if (formRole !== "admin" && !editingAdmin) {
       if (!formPassword) {
         setFormError("Password is required for Sub Admins and Secretaries.");
@@ -291,7 +322,13 @@ const SubAdmins = () => {
         return;
       }
     }
-    if (isSuperAdmin && formRole !== "admin" && formRole !== "super_sub_admin" && !editingAdmin && !formAssignedAdmin) {
+    if (
+      isSuperAdmin &&
+      formRole !== "admin" &&
+      formRole !== "super_sub_admin" &&
+      !editingAdmin &&
+      !formAssignedAdmin
+    ) {
       setFormError("Please assign an Admin to this account.");
       return;
     }
@@ -303,8 +340,12 @@ const SubAdmins = () => {
       }
     }
 
-    if (formRole !== "admin" && formRole !== "super_sub_admin" && !formSociety) {
-      setFormError("Please select a society for this admin account.");
+    if (
+      formRole !== "admin" &&
+      formRole !== "super_sub_admin" &&
+      (!formSocieties || formSocieties.length === 0)
+    ) {
+      setFormError("Please select at least one society for this admin account.");
       return;
     }
 
@@ -345,7 +386,7 @@ const SubAdmins = () => {
         const updateData = {
           name: formName.trim(),
           phone: formPhone.trim(),
-          ...(formRole !== "admin" && { society: formSociety }),
+          ...(formRole !== "admin" && { societies: formSocieties, society: formSocieties[0] }),
           role: formRole,
           permissions: formRole === "admin" ? [] : formPermissions,
           canViewAllSocietiesSOS: formCanViewAllSocietiesSOS,
@@ -356,11 +397,13 @@ const SubAdmins = () => {
 
         await updateAdmin(editingAdmin._id || editingAdmin.id, updateData);
         if (isSuperAdmin && planPayload && planPayload.planId) {
-          await updateAdminPlan(editingAdmin._id || editingAdmin.id, planPayload.planId);
+          await updateAdminPlan(
+            editingAdmin._id || editingAdmin.id,
+            planPayload.planId,
+          );
         }
         setIsModalOpen(false);
       } else {
-        
         let response;
         if (formRole === "admin") {
           response = await createAdmin({
@@ -370,20 +413,24 @@ const SubAdmins = () => {
             role: formRole,
             permissions: [],
             canViewAllSocietiesSOS: formCanViewAllSocietiesSOS,
-            ...(isSuperAdmin && planPayload ? { plan: planPayload.planId } : {}),
+            ...(isSuperAdmin && planPayload
+              ? { plan: planPayload.planId }
+              : {}),
           });
-          
+
           setLicenseModalData({
             key: response.licenseKey || "Check console/SMS",
-            email: formEmail.trim()
+            email: formEmail.trim(),
           });
-        
         } else if (formRole === "super_sub_admin") {
           response = await createSuperSubAdmin({
             name: formName.trim(),
             phone: formPhone.trim(),
+            email: formEmail.trim(),
             password: formPassword,
             permissions: formPermissions,
+            societies: formSocieties,
+            society: formSocieties[0],
           });
           alert("Super Sub Admin created successfully.");
         } else if (formRole === "sub_admin") {
@@ -393,22 +440,25 @@ const SubAdmins = () => {
             email: formEmail.trim(),
             password: formPassword,
             permissions: formPermissions,
-            assignedAdminId: isSuperAdmin ? formAssignedAdmin : undefined
+            assignedAdminId: isSuperAdmin ? formAssignedAdmin : undefined,
+            societies: formSocieties,
+            society: formSocieties[0],
           });
           setLicenseModalData({
             emailSent: response.emailSent,
-            email: formEmail.trim()
+            email: formEmail.trim(),
           });
         } else if (formRole === "secretary") {
           response = await createSecretary({
             name: formName.trim(),
             phone: formPhone.trim(),
             password: formPassword,
-            assignedAdminId: isSuperAdmin ? formAssignedAdmin : undefined
+            assignedAdminId: isSuperAdmin ? formAssignedAdmin : undefined,
+            societies: formSocieties,
+            society: formSocieties[0],
           });
           alert("Society Secretary created successfully.");
         }
-
 
         setIsModalOpen(false);
       }
@@ -489,7 +539,12 @@ const SubAdmins = () => {
             </svg>
           </button>
           {canManageThisType && (
-            <button className="btn btn-primary" onClick={handleOpenCreate} disabled={!canCreateSubAdmin} title={!canCreateSubAdmin ? "Limit reached" : ""}>
+            <button
+              className="btn btn-primary"
+              onClick={handleOpenCreate}
+              disabled={!canCreateSubAdmin}
+              title={!canCreateSubAdmin ? "Limit reached" : ""}
+            >
               <span>Add Sub Admin</span>
             </button>
           )}
@@ -556,9 +611,13 @@ const SubAdmins = () => {
                   const name = item.name || "N/A";
                   const phone = item.phone || "N/A";
                   const societyName =
-                    typeof item.society === "object"
-                      ? item.society?.name || "Society"
-                      : item.society || "N/A";
+                    Array.isArray(item.societies) && item.societies.length > 0
+                      ? item.societies
+                          .map((s) => (typeof s === "object" ? s?.name : s))
+                          .join(", ")
+                      : typeof item.society === "object"
+                        ? item.society?.name || "Society"
+                        : item.society || "N/A";
                   const isVerified = item.isVerified !== false;
                   const permissions = Array.isArray(item.permissions)
                     ? item.permissions
@@ -721,17 +780,17 @@ const SubAdmins = () => {
                   </div>
                 )}
 
-                                  <div className="form-group mb-4">
-                    <label htmlFor="adminName">Full Name</label>
-                    <input
-                      id="adminName"
-                      type="text"
-                      placeholder="Enter admin name"
-                      value={formName}
-                      onChange={(e) => setFormName(e.target.value)}
-                      required
-                    />
-                  </div>
+                <div className="form-group mb-4">
+                  <label htmlFor="adminName">Full Name</label>
+                  <input
+                    id="adminName"
+                    type="text"
+                    placeholder="Enter admin name"
+                    value={formName}
+                    onChange={(e) => setFormName(e.target.value)}
+                    required
+                  />
+                </div>
 
                 <div className="form-group mb-4">
                   <label htmlFor="adminPhone">Phone Number</label>
@@ -740,7 +799,11 @@ const SubAdmins = () => {
                     type="text"
                     placeholder="Enter phone number"
                     value={formPhone}
-                    onChange={(e) => setFormPhone(e.target.value)}
+                    onChange={(e) =>
+                      setFormPhone(
+                        e.target.value.replace(/\D/g, "").slice(0, 10),
+                      )
+                    }
                     required
                   />
                 </div>
@@ -750,26 +813,83 @@ const SubAdmins = () => {
                     id="adminEmail"
                     type="email"
                     placeholder="Enter email address"
-                      value={formEmail}
-                      onChange={(e) => setFormEmail(e.target.value)}
-                      required
-                    />
-                  </div>
-                
+                    value={formEmail}
+                    onChange={(e) => setFormEmail(e.target.value)}
+                    onBlur={(e) => {
+                      if (
+                        e.target.value &&
+                        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+                          e.target.value.trim(),
+                        )
+                      ) {
+                        setFormError("Please enter a valid email address.");
+                      } else {
+                        setFormError(null);
+                      }
+                    }}
+                    required
+                  />
+                </div>
 
-                
                 {(editingAdmin || formRole !== "admin") && (
                   <div className="form-group mb-4">
                     <label htmlFor="adminPassword">
-                      Password {editingAdmin ? <span className="text-muted" style={{ fontWeight: 400 }}>(leave blank to keep current)</span> : <span className="text-danger">*</span>}
+                      Password{" "}
+                      {editingAdmin ? (
+                        <span
+                          className="text-muted"
+                          style={{ fontWeight: 400 }}
+                        >
+                          (leave blank to keep current)
+                        </span>
+                      ) : (
+                        <span className="text-danger">*</span>
+                      )}
                     </label>
-                    <input
-                      id="adminPassword"
-                      type="password"
-                      placeholder={editingAdmin ? "New password (optional)" : "Enter password"}
-                      value={formPassword}
-                      onChange={(e) => setFormPassword(e.target.value)}
-                    />
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        id="adminPassword"
+                        type={showPassword ? "text" : "password"}
+                        placeholder={
+                          editingAdmin
+                            ? "New password (optional)"
+                            : "Enter password"
+                        }
+                        value={formPassword}
+                        onChange={(e) => setFormPassword(e.target.value)}
+                        style={{ paddingRight: '40px', width: '100%' }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        style={{
+                          position: 'absolute',
+                          right: '12px',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--text-muted)',
+                          cursor: 'pointer',
+                          padding: 0,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                      >
+                        {showPassword ? (
+                          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                            <line x1="1" y1="1" x2="23" y2="23"/>
+                          </svg>
+                        ) : (
+                          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                            <circle cx="12" cy="12" r="3"/>
+                          </svg>
+                        )}
+                      </button>
+                    </div>
                   </div>
                 )}
                 {!editingAdmin && formRole !== "admin" && (
@@ -777,44 +897,82 @@ const SubAdmins = () => {
                     <label htmlFor="adminConfirmPassword">
                       Confirm Password <span className="text-danger">*</span>
                     </label>
-                    <input
-                      id="adminConfirmPassword"
-                      type="password"
-                      placeholder="Confirm password"
-                      value={formConfirmPassword}
-                      onChange={(e) => setFormConfirmPassword(e.target.value)}
-                    />
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        id="adminConfirmPassword"
+                        type={showConfirmPassword ? "text" : "password"}
+                        placeholder="Confirm password"
+                        value={formConfirmPassword}
+                        onChange={(e) => setFormConfirmPassword(e.target.value)}
+                        style={{ paddingRight: '40px', width: '100%' }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        style={{
+                          position: 'absolute',
+                          right: '12px',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--text-muted)',
+                          cursor: 'pointer',
+                          padding: 0,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                      >
+                        {showConfirmPassword ? (
+                          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                            <line x1="1" y1="1" x2="23" y2="23"/>
+                          </svg>
+                        ) : (
+                          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                            <circle cx="12" cy="12" r="3"/>
+                          </svg>
+                        )}
+                      </button>
+                    </div>
                   </div>
                 )}
-                {isSuperAdmin && !editingAdmin && formRole !== "admin" && formRole !== "super_sub_admin" && (
-                   <div className="form-group mb-4">
-                    <label htmlFor="assignAdminSelect">
-                      Assign Admin <span className="text-danger">*</span>
-                    </label>
-                    <select
-                      id="assignAdminSelect"
-                      value={formAssignedAdmin}
-                      onChange={(e) => setFormAssignedAdmin(e.target.value)}
-                      style={{
-                        width: "100%",
-                        padding: "10px",
-                        backgroundColor: "var(--bg-dark)",
-                        color: "var(--text-main)",
-                        border: "1px solid var(--border-color)",
-                        borderRadius: "8px",
-                      }}
-                    >
-                      <option value="">Select an Admin...</option>
-                      {admins.filter(a => a.role === 'admin' || a.role === 'ADMIN').map((a) => (
-                        <option key={a._id || a.id} value={a._id || a.id}>
-                          {a.name} ({a.phone})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-
+                {isSuperAdmin &&
+                  !editingAdmin &&
+                  formRole !== "admin" &&
+                  formRole !== "super_sub_admin" && (
+                    <div className="form-group mb-4">
+                      <label htmlFor="assignAdminSelect">
+                        Assign Admin <span className="text-danger">*</span>
+                      </label>
+                      <select
+                        id="assignAdminSelect"
+                        value={formAssignedAdmin}
+                        onChange={(e) => setFormAssignedAdmin(e.target.value)}
+                        style={{
+                          width: "100%",
+                          padding: "10px",
+                          backgroundColor: "var(--bg-dark)",
+                          color: "var(--text-main)",
+                          border: "1px solid var(--border-color)",
+                          borderRadius: "8px",
+                        }}
+                      >
+                        <option value="">Select an Admin...</option>
+                        {admins
+                          .filter(
+                            (a) => a.role === "admin" || a.role === "ADMIN",
+                          )
+                          .map((a) => (
+                            <option key={a._id || a.id} value={a._id || a.id}>
+                              {a.name} ({a.phone})
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+                  )}
 
                 {isSuperAdmin && formRole !== "super_sub_admin" && (
                   <>
@@ -840,7 +998,11 @@ const SubAdmins = () => {
                         </option>
                         {plans
                           .filter((p) => (p.status || "active") !== "inactive")
-                          .filter((p) => p.monthlyPrice !== undefined && p.monthlyPrice !== null)
+                          .filter(
+                            (p) =>
+                              p.monthlyPrice !== undefined &&
+                              p.monthlyPrice !== null,
+                          )
                           .map((p) => {
                             const pid = p._id || p.id;
                             const pname =
@@ -938,21 +1100,6 @@ const SubAdmins = () => {
                         </p>
                       </div>
                     )}
-                    {formRole === "admin" && editingAdmin && (
-                      <div className="form-group mb-4">
-                        <label className="checkbox-card" style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: "10px" }}>
-                          <input
-                            type="checkbox"
-                            checked={formCanViewAllSocietiesSOS}
-                            onChange={(e) => setFormCanViewAllSocietiesSOS(e.target.checked)}
-                          />
-                          <span style={{ fontWeight: "600" }}>Expanded SOS Visibility</span>
-                        </label>
-                        <p className="text-muted" style={{ fontSize: "0.85rem", marginTop: "4px" }}>
-                          If enabled, this Admin will see emergency SOS alerts from ALL societies they manage, not just the primary one.
-                        </p>
-                      </div>
-                    )}
                   </>
                 )}
                 {formRole !== "admin" && (
@@ -974,54 +1121,103 @@ const SubAdmins = () => {
                       className="permissions-grid"
                       style={{
                         display: "grid",
-                        gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))",
+                        gridTemplateColumns:
+                          "repeat(auto-fill, minmax(130px, 1fr))",
                         gap: "10px",
                       }}
                     >
                       {ACCESS_OPTIONS.map((option) => {
-         const allowedByCurrentUser =
-           isSuperAdmin ||
-           user?.role === "admin" ||
-           (Array.isArray(user?.permissions)
-             ? user.permissions.includes(option.key)
-             : false);
-             
-         const isSelected = formPermissions.includes(option.key);
-         
-         return (
-           <div
-             key={option.key}
-             onClick={() => allowedByCurrentUser && togglePermission(option.key)}
-             style={{
-               border: isSelected ? '2px solid var(--primary-color)' : '1px solid var(--border-color)',
-               borderRadius: '8px',
-               padding: '12px',
-               display: 'flex',
-               flexDirection: 'column',
-               alignItems: 'center',
-               justifyContent: 'center',
-               gap: '8px',
-               backgroundColor: isSelected ? 'rgba(14, 165, 233, 0.1)' : 'var(--bg-dark)',
-               cursor: allowedByCurrentUser ? 'pointer' : 'not-allowed',
-               opacity: allowedByCurrentUser ? 1 : 0.5,
-               transition: 'all 0.2s ease',
-               textAlign: 'center',
-               userSelect: 'none'
-             }}
-           >
-             <div style={{ color: isSelected ? 'var(--primary-color)' : 'var(--text-muted)' }}>
-                {isSelected ? (
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-                ) : (
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle></svg>
-                )}
-             </div>
-             <span style={{ fontSize: '0.85rem', fontWeight: isSelected ? '600' : '400', color: isSelected ? 'var(--text-main)' : 'var(--text-muted)' }}>
-               {option.label}
-             </span>
-           </div>
-         );
-       })}
+                        const allowedByCurrentUser =
+                          isSuperAdmin ||
+                          user?.role === "admin" ||
+                          (Array.isArray(user?.permissions)
+                            ? user.permissions.includes(option.key)
+                            : false);
+
+                        const isSelected = formPermissions.includes(option.key);
+
+                        return (
+                          <div
+                            key={option.key}
+                            onClick={() =>
+                              allowedByCurrentUser &&
+                              togglePermission(option.key)
+                            }
+                            style={{
+                              border: isSelected
+                                ? "2px solid var(--primary-color)"
+                                : "1px solid var(--border-color)",
+                              borderRadius: "8px",
+                              padding: "12px",
+                              display: "flex",
+                              flexDirection: "column",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              gap: "8px",
+                              backgroundColor: isSelected
+                                ? "rgba(14, 165, 233, 0.1)"
+                                : "var(--bg-dark)",
+                              cursor: allowedByCurrentUser
+                                ? "pointer"
+                                : "not-allowed",
+                              opacity: allowedByCurrentUser ? 1 : 0.5,
+                              transition: "all 0.2s ease",
+                              textAlign: "center",
+                              userSelect: "none",
+                            }}
+                          >
+                            <div
+                              style={{
+                                color: isSelected
+                                  ? "var(--primary-color)"
+                                  : "var(--text-muted)",
+                              }}
+                            >
+                              {isSelected ? (
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  width="24"
+                                  height="24"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                >
+                                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                                  <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                                </svg>
+                              ) : (
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  width="24"
+                                  height="24"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                >
+                                  <circle cx="12" cy="12" r="10"></circle>
+                                </svg>
+                              )}
+                            </div>
+                            <span
+                              style={{
+                                fontSize: "0.85rem",
+                                fontWeight: isSelected ? "600" : "400",
+                                color: isSelected
+                                  ? "var(--text-main)"
+                                  : "var(--text-muted)",
+                              }}
+                            >
+                              {option.label}
+                            </span>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -1029,10 +1225,17 @@ const SubAdmins = () => {
                 {formRole !== "admin" && formRole !== "super_sub_admin" && (
                   <SocietySelect
                     id="adminSociety"
-                    value={formSociety}
-                    onChange={setFormSociety}
+                    value={formRole === "secretary" ? (formSocieties[0] || "") : formSocieties}
+                    onChange={(val) => {
+                      if (formRole === "secretary") {
+                        setFormSocieties(val ? [val] : []);
+                      } else {
+                        setFormSocieties(val);
+                      }
+                    }}
                     required
                     disabled={!isSuperAdmin}
+                    isMulti={formRole === "sub_admin"}
                   />
                 )}
               </div>
@@ -1075,13 +1278,33 @@ const SubAdmins = () => {
             <div className="modal-header">
               <div className="modal-title-group">
                 <div className="info-icon-badge">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="12" cy="12" r="10"/>
-                    <line x1="12" y1="16" x2="12" y2="12"/>
-                    <line x1="12" y1="8" x2="12.01" y2="8"/>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="16" x2="12" y2="12" />
+                    <line x1="12" y1="8" x2="12.01" y2="8" />
                   </svg>
                 </div>
-                <h3>Admin Account Details</h3>
+                <h3>
+                  {detailItem.role === "super_admin"
+                    ? "Super Admin Account Details"
+                    : detailItem.role === "super_sub_admin"
+                      ? "Super Sub Admin Account Details"
+                      : detailItem.role === "sub_admin"
+                        ? "Sub Admin Account Details"
+                        : detailItem.role === "secretary"
+                          ? "Secretary Account Details"
+                          : "Admin Account Details"}
+                </h3>
               </div>
               <button
                 className="icon-btn-close"
@@ -1092,7 +1315,14 @@ const SubAdmins = () => {
               </button>
             </div>
 
-            <div className="modal-body" style={{ maxHeight: "75vh", overflowY: "auto", padding: "20px 24px" }}>
+            <div
+              className="modal-body"
+              style={{
+                maxHeight: "75vh",
+                overflowY: "auto",
+                padding: "20px 24px",
+              }}
+            >
               {isSuperAdmin && detailItem.licenseKey && (
                 <div
                   style={{
@@ -1135,18 +1365,26 @@ const SubAdmins = () => {
               <div className="detail-grid">
                 <div className="detail-item">
                   <span className="detail-label">Admin Name</span>
-                  <span className="detail-value">{detailItem.name || "Pending Sign Up"}</span>
+                  <span className="detail-value">
+                    {detailItem.name || "Pending Sign Up"}
+                  </span>
                 </div>
 
                 <div className="detail-item">
                   <span className="detail-label">Phone Number</span>
-                  <span className="detail-value">{detailItem.phone || "N/A"}</span>
+                  <span className="detail-value">
+                    {detailItem.phone || "N/A"}
+                  </span>
                 </div>
 
                 <div className="detail-item">
                   <span className="detail-label">Assigned Society</span>
                   <span className="detail-value">
-                    {typeof detailItem.society === "object"
+                    {Array.isArray(detailItem.societies) && detailItem.societies.length > 0
+                      ? detailItem.societies
+                          .map((s) => (typeof s === "object" ? s?.name : s))
+                          .join(", ")
+                      : typeof detailItem.society === "object"
                       ? detailItem.society?.name || "N/A"
                       : detailItem.society || "N/A"}
                   </span>
@@ -1157,32 +1395,50 @@ const SubAdmins = () => {
                   <span className="detail-value">
                     {detailItem.role === "super_admin"
                       ? "Super Admin"
-                      : detailItem.role === "admin"
-                        ? "Admin"
-                        : detailItem.role === "sub_admin"
-                          ? "Sub Admin"
-                          : "Secretary"}
+                      : detailItem.role === "super_sub_admin"
+                        ? "Super Sub Admin"
+                        : detailItem.role === "admin"
+                          ? "Admin"
+                          : detailItem.role === "sub_admin"
+                            ? "Sub Admin"
+                            : "Secretary"}
                   </span>
                 </div>
 
                 <div className="detail-item">
                   <span className="detail-label">Verification Status</span>
                   <span className="detail-value">
-                    <StatusBadge status={detailItem.isVerified !== false ? "Active" : "Pending"} />
+                    <StatusBadge
+                      status={
+                        detailItem.isVerified !== false ? "Active" : "Pending"
+                      }
+                    />
                   </span>
                 </div>
 
                 {detailItem.plan && (
                   <div className="detail-item" style={{ gridColumn: "1 / -1" }}>
                     <span className="detail-label">Subscription Plan</span>
-                    <span className="detail-value" style={{ display: "block", marginTop: "4px" }}>
-                      <strong>{detailItem.plan.name || "Custom"}</strong> ({detailItem.plan.billingCycle || "monthly"})
+                    <span
+                      className="detail-value"
+                      style={{ display: "block", marginTop: "4px" }}
+                    >
+                      <strong>{detailItem.plan.name || "Custom"}</strong> (
+                      {detailItem.plan.billingCycle || "monthly"})
                     </span>
-                    <span className="text-muted" style={{ fontSize: "0.85rem", marginTop: "4px", display: "block" }}>
-                      Limits: Sub-Admins: {detailItem.plan.limits?.maxSubAdmins || "Unl"} • 
-                      Societies: {detailItem.plan.limits?.maxSocieties || "Unl"} • 
-                      Guards: {detailItem.plan.limits?.maxGuards || "Unl"} • 
-                      Services: {detailItem.plan.limits?.maxServices || "Unl"} • 
+                    <span
+                      className="text-muted"
+                      style={{
+                        fontSize: "0.85rem",
+                        marginTop: "4px",
+                        display: "block",
+                      }}
+                    >
+                      Limits: Sub-Admins:{" "}
+                      {detailItem.plan.limits?.maxSubAdmins || "Unl"} •
+                      Societies: {detailItem.plan.limits?.maxSocieties || "Unl"}{" "}
+                      • Guards: {detailItem.plan.limits?.maxGuards || "Unl"} •
+                      Services: {detailItem.plan.limits?.maxServices || "Unl"} •
                       Residents: {detailItem.plan.limits?.maxResidents || "Unl"}
                     </span>
                   </div>
@@ -1190,12 +1446,19 @@ const SubAdmins = () => {
 
                 <div className="detail-item" style={{ gridColumn: "1 / -1" }}>
                   <span className="detail-label">Access Permissions</span>
-                  <span className="detail-value" style={{ display: "block", marginTop: "4px" }}>
-                    {Array.isArray(detailItem.permissions) && detailItem.permissions.length > 0
-                      ? ACCESS_OPTIONS.filter((opt) => detailItem.permissions.includes(opt.key))
+                  <span
+                    className="detail-value"
+                    style={{ display: "block", marginTop: "4px" }}
+                  >
+                    {Array.isArray(detailItem.permissions) &&
+                    detailItem.permissions.length > 0
+                      ? ACCESS_OPTIONS.filter((opt) =>
+                          detailItem.permissions.includes(opt.key),
+                        )
                           .map((opt) => opt.label)
                           .join(", ")
-                      : detailItem.role === "admin" || detailItem.role === "super_admin"
+                      : detailItem.role === "admin" ||
+                          detailItem.role === "super_admin"
                         ? "All Access"
                         : "No permissions assigned"}
                   </span>
@@ -1226,43 +1489,113 @@ const SubAdmins = () => {
         onConfirm={handleConfirmDelete}
         onCancel={() => setDeleteTarget(null)}
       />
-    
+
       {licenseModalData && (
         <div className="modal-overlay custom-modal-overlay">
-          <div className="modal-content custom-modal-content" style={{ maxWidth: '400px', textAlign: 'center' }}>
-            <button className="modal-close-btn" onClick={() => setLicenseModalData(null)}>
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <div
+            className="modal-content custom-modal-content"
+            style={{ maxWidth: "400px", textAlign: "center" }}
+          >
+            <button
+              className="modal-close-btn"
+              onClick={() => setLicenseModalData(null)}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
                 <line x1="18" y1="6" x2="6" y2="18" />
                 <line x1="6" y1="6" x2="18" y2="18" />
               </svg>
             </button>
-            <div style={{ padding: '20px' }}>
-              <div style={{ width: '60px', height: '60px', background: '#d1fae5', color: '#10b981', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            <div style={{ padding: "20px" }}>
+              <div
+                style={{
+                  width: "60px",
+                  height: "60px",
+                  background: "#d1fae5",
+                  color: "#10b981",
+                  borderRadius: "50%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  margin: "0 auto 16px",
+                }}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="32"
+                  height="32"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
               </div>
-              <h2 style={{ marginBottom: '8px', color: '#111827', fontSize: '1.25rem' }}>Credentials Generated Successfully</h2>
-              
-              <div style={{ background: '#f3f4f6', borderRadius: '8px', padding: '16px', marginBottom: '16px' }}>
-                <p style={{ color: '#4b5563', fontSize: '0.95rem' }}>
+              <h2
+                style={{
+                  marginBottom: "8px",
+                  color: "#111827",
+                  fontSize: "1.25rem",
+                }}
+              >
+                Credentials Generated Successfully
+              </h2>
+
+              <div
+                style={{
+                  background: "#f3f4f6",
+                  borderRadius: "8px",
+                  padding: "16px",
+                  marginBottom: "16px",
+                }}
+              >
+                <p style={{ color: "#4b5563", fontSize: "0.95rem" }}>
                   The account has been created.
                 </p>
               </div>
-              
-              <p style={{ color: '#10b981', fontSize: '0.85rem', marginBottom: '24px' }}>
-                {licenseModalData.emailSent ? `Email sent to ${licenseModalData.email} with login credentials.` : `Failed to send email to ${licenseModalData.email}. Please provide credentials manually.`}
+
+              <p
+                style={{
+                  color: "#10b981",
+                  fontSize: "0.85rem",
+                  marginBottom: "24px",
+                }}
+              >
+                {licenseModalData.emailSent
+                  ? `Email sent to ${licenseModalData.email} with login credentials.`
+                  : `Failed to send email to ${licenseModalData.email}. Please provide credentials manually.`}
               </p>
-              
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <button 
-                  className="btn btn-primary" 
-                  style={{ flex: 1, padding: '10px' }}
+
+              <div style={{ display: "flex", gap: "12px" }}>
+                <button
+                  className="btn btn-primary"
+                  style={{ flex: 1, padding: "10px" }}
                   onClick={() => setLicenseModalData(null)}
                 >
                   Close
                 </button>
               </div>
-              <button 
-                style={{ marginTop: '16px', background: 'none', border: 'none', color: '#6b7280', fontWeight: '500', cursor: 'pointer' }}
+              <button
+                style={{
+                  marginTop: "16px",
+                  background: "none",
+                  border: "none",
+                  color: "#6b7280",
+                  fontWeight: "500",
+                  cursor: "pointer",
+                }}
                 onClick={() => setLicenseModalData(null)}
               >
                 Done
@@ -1271,8 +1604,7 @@ const SubAdmins = () => {
           </div>
         </div>
       )}
-
-</div>
+    </div>
   );
 };
 

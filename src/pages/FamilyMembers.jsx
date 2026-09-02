@@ -177,6 +177,10 @@ const FamilyMembers = () => {
       setFormError("Member name and relationship are required.");
       return;
     }
+    if (phone.trim() && !/^\d{10}$/.test(phone.trim())) {
+      setFormError("Phone number must be exactly 10 digits.");
+      return;
+    }
     if (isSuperAdmin && !society) {
       setFormError("Please select a society.");
       return;
@@ -493,7 +497,7 @@ const FamilyMembers = () => {
                   <input
                     type="text"
                     value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
+                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                   />
                 </div>
               </div>

@@ -7,10 +7,6 @@ const extractData = (response) => {
   return response?.data;
 };
 
-// ============================================================================
-// DASHBOARD ENDPOINTS
-// ============================================================================
-export const getDashboardStats = async () => extractData(await api.get("/admin/dashboard"));
 
 // ============================================================================
 // RESIDENTS ENDPOINTS
@@ -97,13 +93,20 @@ export const updateVisitor = async (id, data) => extractData(await api.put(`/adm
 export const deleteVisitor = async (id) => extractData(await api.delete(`/admin/visitors/${id}`));
 
 // ============================================================================
+// DASHBOARD ENDPOINTS
+// ============================================================================
+export const getDashboardStats = async () => extractData(await api.get("/admin/dashboard"));
+export const updateRevenueGoal = async (revenueGoal) => extractData(await api.put("/admin/revenue/goal", { revenueGoal }));
+export const getRevenueTransactions = async (params = {}, options = {}) => extractData(await api.get("/admin/revenue/transactions", { params, ...options }));
+export const getRevenueStats = async () => extractData(await api.get("/admin/revenue/stats"));
+
+// ============================================================================
 // COMMUNITY NEWS ENDPOINTS
 // ============================================================================
 export const getNews = async () => extractData(await api.get("/admin/news"));
 export const createNews = async (data) => extractData(await api.post("/admin/news", data));
 export const updateNews = async (id, data) => extractData(await api.put(`/admin/news/${id}`, data));
 export const deleteNews = async (id) => extractData(await api.delete(`/admin/news/${id}`));
-
 // ============================================================================
 // FAMILY MEMBERS ENDPOINTS
 // ============================================================================

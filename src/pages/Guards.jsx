@@ -62,6 +62,7 @@ const Guards = () => {
   const [formEmployeeId, setFormEmployeeId] = useState("");
   const [formPhone, setFormPhone] = useState("");
   const [formPassword, setFormPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [formSociety, setFormSociety] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [formError, setFormError] = useState(null);
@@ -152,6 +153,10 @@ const Guards = () => {
     e.preventDefault();
     if (!formName.trim() || !formEmployeeId.trim()) {
       setFormError("Please fill in guard name and employee ID.");
+      return;
+    }
+    if (formPhone.trim() && !/^\d{10}$/.test(formPhone.trim())) {
+      setFormError("Phone number must be exactly 10 digits.");
       return;
     }
 
@@ -517,7 +522,7 @@ const Guards = () => {
                     type="text"
                     placeholder="Enter phone number"
                     value={formPhone}
-                    onChange={(e) => setFormPhone(e.target.value)}
+                    onChange={(e) => setFormPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                   />
                 </div>
 
@@ -530,18 +535,51 @@ const Guards = () => {
                       </span>
                     )}
                   </label>
-                  <input
-                    id="guardPassword"
-                    type="password"
-                    placeholder={
-                      editingItem
-                        ? "New password (optional)"
-                        : "Create login password (min 6 chars)"
-                    }
-                    value={formPassword}
-                    onChange={(e) => setFormPassword(e.target.value)}
-                    required={!editingItem}
-                  />
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      id="guardPassword"
+                      type={showPassword ? "text" : "password"}
+                      placeholder={
+                        editingItem
+                          ? "New password (optional)"
+                          : "Create login password (min 6 chars)"
+                      }
+                      value={formPassword}
+                      onChange={(e) => setFormPassword(e.target.value)}
+                      required={!editingItem}
+                      style={{ paddingRight: '40px', width: '100%' }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      style={{
+                        position: 'absolute',
+                        right: '12px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--text-muted)',
+                        cursor: 'pointer',
+                        padding: 0,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
+                    >
+                      {showPassword ? (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                          <line x1="1" y1="1" x2="23" y2="23"/>
+                        </svg>
+                      ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                          <circle cx="12" cy="12" r="3"/>
+                        </svg>
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
 

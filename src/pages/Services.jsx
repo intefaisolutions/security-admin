@@ -142,6 +142,10 @@ const Services = () => {
       setFormError("Please fill in provider name, category, and phone number.");
       return;
     }
+    if (!/^\d{10}$/.test(formPhone.trim())) {
+      setFormError("Phone number must be exactly 10 digits.");
+      return;
+    }
     if (isSuperAdmin && !formSociety) {
       setFormError("Please select a society for this service provider.");
       return;
@@ -559,7 +563,7 @@ const Services = () => {
                     type="text"
                     placeholder="Enter phone number"
                     value={formPhone}
-                    onChange={(e) => setFormPhone(e.target.value)}
+                    onChange={(e) => setFormPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                     required
                   />
                 </div>

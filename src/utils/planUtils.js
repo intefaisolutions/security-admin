@@ -4,13 +4,41 @@ const safeLimit = (value) => {
   return Number.isFinite(n) && n >= 0 ? n : Infinity;
 };
 
+export const BILLING_CYCLE_OPTIONS = [
+  { key: "monthly", label: "Monthly" },
+  { key: "quarterly", label: "Quarterly" },
+  { key: "yearly", label: "Yearly" },
+];
+
+export const normalizeBillingCycle = (value = "monthly") => {
+  const normalized = String(value ?? "monthly").toLowerCase();
+  return BILLING_CYCLE_OPTIONS.some((option) => option.key === normalized)
+    ? normalized
+    : "monthly";
+};
+
+export const getBillingCycleOptions = () => BILLING_CYCLE_OPTIONS;
+
+export const getBillingPriceForCycle = (plan, cycle = "monthly") => {
+  const normalizedCycle = normalizeBillingCycle(cycle);
+  const monthlyPrice = Number(plan?.monthlyPrice ?? 0);
+
+  if (normalizedCycle === "quarterly") {
+    return monthlyPrice * 3;
+  }
+
+  if (normalizedCycle === "yearly") {
+    return Number(plan?.yearlyPrice ?? 0) || monthlyPrice * 12;
+  }
+
+  return monthlyPrice;
+};
+
 // Resolve the effective limits object from a plan document.
 // Supports both flat limits (plan.maxSubAdmins) and nested limits (plan.limits.maxSubAdmins).
 const resolveLimits = (plan) => {
   if (!plan || typeof plan !== "object") return {};
-  return plan.limits && typeof plan.limits === "object"
-    ? plan.limits
-    : plan;
+  return plan.limits && typeof plan.limits === "object" ? plan.limits : plan;
 };
 
 export const normalizePlanLimits = (user) => {
@@ -19,7 +47,12 @@ export const normalizePlanLimits = (user) => {
   return {
     planId: plan.planId || plan._id || plan.id || null,
     planName: plan.name || plan.planName || plan.title || "Standard",
-    billingCycle: plan.billing || plan.billingCycle || plan.type || plan.period || "monthly",
+    billingCycle:
+      plan.billing ||
+      plan.billingCycle ||
+      plan.type ||
+      plan.period ||
+      "monthly",
     monthlyPrice:
       plan.monthlyPrice !== undefined && plan.monthlyPrice !== null
         ? Number(plan.monthlyPrice)
@@ -41,7 +74,10 @@ export const normalizePlanLimits = (user) => {
         limits.societiesAllowed,
     ),
     maxGuards: safeLimit(
-      limits.maxGuards ?? limits.guardLimit ?? limits.maxGuard ?? limits.guardsAllowed,
+      limits.maxGuards ??
+        limits.guardLimit ??
+        limits.maxGuard ??
+        limits.guardsAllowed,
     ),
     maxServices: safeLimit(
       limits.maxServices ??
@@ -73,7 +109,11 @@ export const buildPlanPayload = (selectedPlan, billingCycle = "monthly") => {
 
   return {
     planId: id,
-    name: selectedPlan.name || selectedPlan.planName || selectedPlan.title || "Standard",
+    name:
+      selectedPlan.name ||
+      selectedPlan.planName ||
+      selectedPlan.title ||
+      "Standard",
     billingCycle,
     monthlyPrice: selectedPlan.monthlyPrice,
     yearlyPrice: selectedPlan.yearlyPrice,

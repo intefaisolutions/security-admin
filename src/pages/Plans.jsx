@@ -1,5 +1,12 @@
 import { useState, useEffect, useMemo } from "react";
-import { getPlans, createPlan, updatePlan, deletePlan, getMySubscription, buyPlan } from "../api/admin";
+import {
+  getPlans,
+  createPlan,
+  updatePlan,
+  deletePlan,
+  getMySubscription,
+  buyPlan,
+} from "../api/admin";
 import { useAuth } from "../context/AuthContext";
 import { useDebounce } from "../hooks/useDebounce";
 import LoadingSpinner from "../components/LoadingSpinner";
@@ -22,6 +29,7 @@ const STATUS_OPTIONS = [
 
 const CYCLE_OPTIONS = [
   { key: "monthly", label: "Monthly" },
+  { key: "quarterly", label: "Quarterly" },
   { key: "yearly", label: "Yearly" },
 ];
 
@@ -299,7 +307,8 @@ const Plans = () => {
         <div className="card-box empty-state-box">
           <h3>Access Restricted</h3>
           <p className="text-muted">
-            Admin or Super Admin privileges are required to view subscription plans.
+            Admin or Super Admin privileges are required to view subscription
+            plans.
           </p>
         </div>
       </div>
@@ -333,9 +342,17 @@ const Plans = () => {
           <div className="card-box" style={{ marginBottom: "24px" }}>
             <h3>Current Plan</h3>
             <div style={{ marginTop: "16px" }}>
-              <p><strong>Plan:</strong> {mySubscription.plan?.name || mySubscription.planName || "N/A"}</p>
-              <p><strong>Billing Cycle:</strong> {mySubscription.billingCycle || "N/A"}</p>
-              <p><strong>Status:</strong> {mySubscription.status || "Active"}</p>
+              <p>
+                <strong>Plan:</strong>{" "}
+                {mySubscription.plan?.name || mySubscription.planName || "N/A"}
+              </p>
+              <p>
+                <strong>Billing Cycle:</strong>{" "}
+                {mySubscription.billingCycle || "N/A"}
+              </p>
+              <p>
+                <strong>Status:</strong> {mySubscription.status || "Active"}
+              </p>
               {mySubscription.plan?.limits && (
                 <div style={{ marginTop: "12px" }}>
                   <strong>Limits:</strong>
@@ -355,13 +372,39 @@ const Plans = () => {
             </div>
           </div>
         ) : (
-          <div className="card-box empty-state-box" style={{ marginBottom: "24px" }}>
+          <div
+            className="card-box empty-state-box"
+            style={{ marginBottom: "24px" }}
+          >
             <h3>No Active Subscription</h3>
             <p className="text-muted">
-              You don't have an active subscription. Choose a plan below to get started.
+              You don't have an active subscription. Choose a plan below to get
+              started.
             </p>
           </div>
         )}
+
+        <div
+          className="pricing-billing-toggle"
+          role="tablist"
+          aria-label="Billing cycle"
+          style={{ marginBottom: "16px" }}
+        >
+          {CYCLE_OPTIONS.map((option) => (
+            <button
+              key={option.key}
+              type="button"
+              role="tab"
+              aria-selected={billingCycle === option.key}
+              className={`billing-toggle-btn ${
+                billingCycle === option.key ? "active" : ""
+              }`}
+              onClick={() => setBillingCycle(option.key)}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
 
         <h3 style={{ marginBottom: "16px" }}>Available Plans</h3>
         <div className="pricing-grid">
@@ -371,14 +414,36 @@ const Plans = () => {
             const description = plan.description || "";
             const limits = extractLimits(plan);
             const isActive = (plan.status || "active") !== "inactive";
-            const isCurrentPlan = mySubscription?.plan?._id === id || mySubscription?.planId === id;
+            const isCurrentPlan =
+              mySubscription?.plan?._id === id || mySubscription?.planId === id;
 
             const monthly = formatPrice(plan.monthlyPrice);
             const yearly = formatPrice(plan.yearlyPrice);
-            const currentPrice = billingCycle === "yearly" ? yearly : monthly;
-            const alternatePrice = billingCycle === "yearly" ? monthly : yearly;
-            const currentPeriod = billingCycle === "yearly" ? "/ year" : "/ month";
-            const alternatePeriod = billingCycle === "yearly" ? "mo" : "yr";
+            const quarterly = monthly !== null ? monthly * 3 : null;
+            const currentPrice =
+              billingCycle === "yearly"
+                ? yearly
+                : billingCycle === "quarterly"
+                  ? quarterly
+                  : monthly;
+            const alternatePrice =
+              billingCycle === "yearly"
+                ? monthly
+                : billingCycle === "quarterly"
+                  ? monthly
+                  : yearly;
+            const currentPeriod =
+              billingCycle === "yearly"
+                ? "/ year"
+                : billingCycle === "quarterly"
+                  ? "/ quarter"
+                  : "/ month";
+            const alternatePeriod =
+              billingCycle === "yearly"
+                ? "mo"
+                : billingCycle === "quarterly"
+                  ? "mo"
+                  : "yr";
 
             return (
               <div
@@ -418,7 +483,11 @@ const Plans = () => {
                     <div className="pricing-alt-price">
                       or {priceDisplay(alternatePrice)}
                       {alternatePeriod} billed{" "}
-                      {billingCycle === "yearly" ? "monthly" : "yearly"}
+                      {billingCycle === "yearly"
+                        ? "monthly"
+                        : billingCycle === "quarterly"
+                          ? "monthly"
+                          : "yearly"}
                     </div>
                   )}
 
@@ -604,13 +673,33 @@ const Plans = () => {
 
             const monthly = formatPrice(plan.monthlyPrice);
             const yearly = formatPrice(plan.yearlyPrice);
+            const quarterly = monthly !== null ? monthly * 3 : null;
 
             // Current cycle price + the alternate cycle for the "or" note
-            const currentPrice = billingCycle === "yearly" ? yearly : monthly;
-            const alternatePrice = billingCycle === "yearly" ? monthly : yearly;
+            const currentPrice =
+              billingCycle === "yearly"
+                ? yearly
+                : billingCycle === "quarterly"
+                  ? quarterly
+                  : monthly;
+            const alternatePrice =
+              billingCycle === "yearly"
+                ? monthly
+                : billingCycle === "quarterly"
+                  ? monthly
+                  : yearly;
             const currentPeriod =
-              billingCycle === "yearly" ? "/ year" : "/ month";
-            const alternatePeriod = billingCycle === "yearly" ? "mo" : "yr";
+              billingCycle === "yearly"
+                ? "/ year"
+                : billingCycle === "quarterly"
+                  ? "/ quarter"
+                  : "/ month";
+            const alternatePeriod =
+              billingCycle === "yearly"
+                ? "mo"
+                : billingCycle === "quarterly"
+                  ? "mo"
+                  : "yr";
 
             return (
               <div
@@ -652,7 +741,11 @@ const Plans = () => {
                     <div className="pricing-alt-price">
                       or {priceDisplay(alternatePrice)}
                       {alternatePeriod} billed{" "}
-                      {billingCycle === "yearly" ? "monthly" : "yearly"}
+                      {billingCycle === "yearly"
+                        ? "monthly"
+                        : billingCycle === "quarterly"
+                          ? "monthly"
+                          : "yearly"}
                     </div>
                   )}
 

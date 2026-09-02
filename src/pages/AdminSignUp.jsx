@@ -33,6 +33,10 @@ const AdminSignUp = () => {
       setErrorMsg('Please fill in all required fields.');
       return;
     }
+    if (!/^\d{10}$/.test(phone.trim())) {
+      setErrorMsg('Phone number must be exactly 10 digits.');
+      return;
+    }
 
     if (password !== confirmPassword) {
       setErrorMsg('Passwords do not match. Please re-enter your password.');
@@ -103,7 +107,7 @@ const AdminSignUp = () => {
                   type="text"
                   placeholder="Enter phone number"
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                   disabled={isSubmitting}
                   required
                 />

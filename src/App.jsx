@@ -25,6 +25,7 @@ import Plans from "./pages/Plans";
 import Wallets from "./pages/Wallets";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
+import RevenueOverview from "./pages/RevenueOverview";
 
 function App() {
   return (
@@ -57,6 +58,7 @@ function App() {
             <Route path="/sub-admins" element={<SubAdmins />} />
             <Route path="/society-secretaries" element={<SocietySecretaries />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/revenue-overview" element={<RevenueOverview />} />
         </Route>
       </Route>
 

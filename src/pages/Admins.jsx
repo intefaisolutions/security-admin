@@ -39,6 +39,7 @@ const ACCESS_OPTIONS = [
 
 const PLAN_CYCLE_OPTIONS = [
   { key: "monthly", label: "Monthly" },
+  { key: "quarterly", label: "Quarterly" },
   { key: "yearly", label: "Yearly" },
 ];
 
@@ -101,7 +102,9 @@ const Admins = () => {
   const [formPhone, setFormPhone] = useState("");
   const [formEmail, setFormEmail] = useState("");
   const [formPassword, setFormPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [formConfirmPassword, setFormConfirmPassword] = useState("");
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [formAssignedAdmin, setFormAssignedAdmin] = useState("");
   const [licenseModalData, setLicenseModalData] = useState(null);
   const [formSociety, setFormSociety] = useState("");
@@ -109,8 +112,14 @@ const Admins = () => {
   const [formPermissions, setFormPermissions] = useState([]);
   const [formPlanCycle, setFormPlanCycle] = useState("monthly");
   const [formPlanId, setFormPlanId] = useState("");
-  const [formCanViewAllSocietiesSOS, setFormCanViewAllSocietiesSOS] =
-    useState(false);
+  const [formCanViewAllSocietiesSOS, setFormCanViewAllSocietiesSOS] = useState(false);
+
+  // Assign Society Modal state for super_sub_admin
+  const [isAssignSocietyModalOpen, setIsAssignSocietyModalOpen] = useState(false);
+  const [assignSocietyId, setAssignSocietyId] = useState("");
+  const [assignSocietyAdminIds, setAssignSocietyAdminIds] = useState([]);
+  const [assignSocietyAllAdmins, setAssignSocietyAllAdmins] = useState(false);
+  const [isAssigningSociety, setIsAssigningSociety] = useState(false);
   const [plans, setPlans] = useState([]);
   const [plansLoading, setPlansLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -193,6 +202,50 @@ const Admins = () => {
     const start = (currentPage - 1) * ITEMS_PER_PAGE;
     return filteredAdmins.slice(start, start + ITEMS_PER_PAGE);
   }, [filteredAdmins, currentPage]);
+
+  const handleAssignSociety = async (e) => {
+    e.preventDefault();
+    if (!assignSocietyId) {
+      setFormError("Please select a society.");
+      return;
+    }
+    if (!assignSocietyAllAdmins && assignSocietyAdminIds.length === 0) {
+      setFormError("Please select at least one Admin or choose 'Assign All Admins'.");
+      return;
+    }
+    setFormError("");
+    setIsAssigningSociety(true);
+    try {
+      const response = await fetch(`${API_URL}/admin/super-sub-admins/assign-society`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${user?.token}`,
+        },
+        body: JSON.stringify({
+          societyId: assignSocietyId,
+          adminIds: assignSocietyAdminIds,
+          assignAll: assignSocietyAllAdmins
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to assign society");
+      }
+
+      alert("Society assigned successfully.");
+      setIsAssignSocietyModalOpen(false);
+      setAssignSocietyId("");
+      setAssignSocietyAdminIds([]);
+      setAssignSocietyAllAdmins(false);
+      fetchAdminsList();
+    } catch (err) {
+      setFormError(err.message || "An error occurred");
+    } finally {
+      setIsAssigningSociety(false);
+    }
+  };
 
   const handleOpenDetail = (admin) => {
     setDetailItem(admin);
@@ -295,6 +348,10 @@ const Admins = () => {
       setFormError("Please enter a phone number.");
       return;
     }
+    if (!/^\d{10}$/.test(formPhone.trim())) {
+      setFormError("Phone number must be exactly 10 digits.");
+      return;
+    }
 
     if (!formName.trim()) {
       setFormError("Please enter the admin's name.");
@@ -388,7 +445,7 @@ const Admins = () => {
         const updateData = {
           name: formName.trim(),
           phone: formPhone.trim(),
-          ...(formRole !== "admin" && { society: formSociety }),
+          ...(formRole !== "admin" && formRole !== "super_sub_admin" && { society: formSociety }),
           role: formRole,
           permissions: formRole === "admin" ? [] : formPermissions,
           canViewAllSocietiesSOS: formCanViewAllSocietiesSOS,
@@ -428,6 +485,7 @@ const Admins = () => {
           response = await createSuperSubAdmin({
             name: formName.trim(),
             phone: formPhone.trim(),
+            email: formEmail.trim(),
             password: formPassword,
             permissions: formPermissions,
           });
@@ -436,6 +494,7 @@ const Admins = () => {
           response = await createSubAdmin({
             name: formName.trim(),
             phone: formPhone.trim(),
+            email: formEmail.trim(),
             password: formPassword,
             permissions: formPermissions,
             assignedAdminId: isSuperAdmin ? formAssignedAdmin : undefined,
@@ -445,6 +504,7 @@ const Admins = () => {
           response = await createSecretary({
             name: formName.trim(),
             phone: formPhone.trim(),
+            email: formEmail.trim(),
             password: formPassword,
             assignedAdminId: isSuperAdmin ? formAssignedAdmin : undefined,
           });
@@ -532,6 +592,14 @@ const Admins = () => {
           <button className="btn btn-primary" onClick={handleOpenCreate}>
             <span>Add Admin</span>
           </button>
+          {user?.role === "super_sub_admin" && (
+            <button
+              className="btn btn-primary"
+              onClick={() => setIsAssignSocietyModalOpen(true)}
+            >
+              <span>Assign Society</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -835,7 +903,11 @@ const Admins = () => {
                     type="text"
                     placeholder="Enter phone number"
                     value={formPhone}
-                    onChange={(e) => setFormPhone(e.target.value)}
+                    onChange={(e) =>
+                      setFormPhone(
+                        e.target.value.replace(/\D/g, "").slice(0, 10),
+                      )
+                    }
                     required
                   />
                 </div>
@@ -849,6 +921,18 @@ const Admins = () => {
                       placeholder="Enter email address"
                       value={formEmail}
                       onChange={(e) => setFormEmail(e.target.value)}
+                      onBlur={(e) => {
+                        if (
+                          e.target.value &&
+                          !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+                            e.target.value.trim(),
+                          )
+                        ) {
+                          setFormError("Please enter a valid email address.");
+                        } else {
+                          setFormError(null);
+                        }
+                      }}
                       required
                     />
                   </div>
@@ -869,17 +953,50 @@ const Admins = () => {
                         <span className="text-danger">*</span>
                       )}
                     </label>
-                    <input
-                      id="adminPassword"
-                      type="password"
-                      placeholder={
-                        editingAdmin
-                          ? "New password (optional)"
-                          : "Enter password"
-                      }
-                      value={formPassword}
-                      onChange={(e) => setFormPassword(e.target.value)}
-                    />
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        id="adminPassword"
+                        type={showPassword ? "text" : "password"}
+                        placeholder={
+                          editingAdmin
+                            ? "New password (optional)"
+                            : "Enter password"
+                        }
+                        value={formPassword}
+                        onChange={(e) => setFormPassword(e.target.value)}
+                        style={{ paddingRight: '40px', width: '100%' }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        style={{
+                          position: 'absolute',
+                          right: '12px',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--text-muted)',
+                          cursor: 'pointer',
+                          padding: 0,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                      >
+                        {showPassword ? (
+                          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                            <line x1="1" y1="1" x2="23" y2="23"/>
+                          </svg>
+                        ) : (
+                          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                            <circle cx="12" cy="12" r="3"/>
+                          </svg>
+                        )}
+                      </button>
+                    </div>
                   </div>
                 )}
                 {!editingAdmin && formRole !== "admin" && (
@@ -887,13 +1004,46 @@ const Admins = () => {
                     <label htmlFor="adminConfirmPassword">
                       Confirm Password <span className="text-danger">*</span>
                     </label>
-                    <input
-                      id="adminConfirmPassword"
-                      type="password"
-                      placeholder="Confirm password"
-                      value={formConfirmPassword}
-                      onChange={(e) => setFormConfirmPassword(e.target.value)}
-                    />
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        id="adminConfirmPassword"
+                        type={showConfirmPassword ? "text" : "password"}
+                        placeholder="Confirm password"
+                        value={formConfirmPassword}
+                        onChange={(e) => setFormConfirmPassword(e.target.value)}
+                        style={{ paddingRight: '40px', width: '100%' }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        style={{
+                          position: 'absolute',
+                          right: '12px',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--text-muted)',
+                          cursor: 'pointer',
+                          padding: 0,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                      >
+                        {showConfirmPassword ? (
+                          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                            <line x1="1" y1="1" x2="23" y2="23"/>
+                          </svg>
+                        ) : (
+                          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                            <circle cx="12" cy="12" r="3"/>
+                          </svg>
+                        )}
+                      </button>
+                    </div>
                   </div>
                 )}
                 {isSuperAdmin &&
@@ -1057,38 +1207,7 @@ const Admins = () => {
                         </p>
                       </div>
                     )}
-                    {formRole === "admin" && editingAdmin && (
-                      <div className="form-group mb-4">
-                        <label
-                          className="checkbox-card"
-                          style={{
-                            cursor: "pointer",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "10px",
-                          }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={formCanViewAllSocietiesSOS}
-                            onChange={(e) =>
-                              setFormCanViewAllSocietiesSOS(e.target.checked)
-                            }
-                          />
-                          <span style={{ fontWeight: "600" }}>
-                            Expanded SOS Visibility
-                          </span>
-                        </label>
-                        <p
-                          className="text-muted"
-                          style={{ fontSize: "0.85rem", marginTop: "4px" }}
-                        >
-                          If enabled, this Admin will see emergency SOS alerts
-                          from ALL societies they manage, not just the primary
-                          one.
-                        </p>
-                      </div>
-                    )}
+
                   </>
                 )}
                 {formRole !== "admin" && (
@@ -1382,33 +1501,42 @@ const Admins = () => {
                   </span>
                 </div>
 
-                {detailItem.plan && (
-                  <div className="detail-item" style={{ gridColumn: "1 / -1" }}>
-                    <span className="detail-label">Subscription Plan</span>
+                <div className="detail-item" style={{ gridColumn: "1 / -1" }}>
+                  <span className="detail-label">Subscription Plan</span>
+                  {detailItem.plan ? (
+                    <>
+                      <span
+                        className="detail-value"
+                        style={{ display: "block", marginTop: "4px" }}
+                      >
+                        <strong>{detailItem.plan.name || "Custom"}</strong> (
+                        {detailItem.plan.billingCycle || "monthly"})
+                      </span>
+                      <span
+                        className="text-muted"
+                        style={{
+                          fontSize: "0.85rem",
+                          marginTop: "4px",
+                          display: "block",
+                        }}
+                      >
+                        Limits: Sub-Admins:{" "}
+                        {detailItem.plan.limits?.maxSubAdmins || "Unl"} •
+                        Societies: {detailItem.plan.limits?.maxSocieties || "Unl"}{" "}
+                        • Guards: {detailItem.plan.limits?.maxGuards || "Unl"} •
+                        Services: {detailItem.plan.limits?.maxServices || "Unl"} •
+                        Residents: {detailItem.plan.limits?.maxResidents || "Unl"}
+                      </span>
+                    </>
+                  ) : (
                     <span
-                      className="detail-value"
+                      className="detail-value text-muted"
                       style={{ display: "block", marginTop: "4px" }}
                     >
-                      <strong>{detailItem.plan.name || "Custom"}</strong> (
-                      {detailItem.plan.billingCycle || "monthly"})
+                      No Active Plan
                     </span>
-                    <span
-                      className="text-muted"
-                      style={{
-                        fontSize: "0.85rem",
-                        marginTop: "4px",
-                        display: "block",
-                      }}
-                    >
-                      Limits: Sub-Admins:{" "}
-                      {detailItem.plan.limits?.maxSubAdmins || "Unl"} •
-                      Societies: {detailItem.plan.limits?.maxSocieties || "Unl"}{" "}
-                      • Guards: {detailItem.plan.limits?.maxGuards || "Unl"} •
-                      Services: {detailItem.plan.limits?.maxServices || "Unl"} •
-                      Residents: {detailItem.plan.limits?.maxResidents || "Unl"}
-                    </span>
-                  </div>
-                )}
+                  )}
+                </div>
 
                 <div className="detail-item" style={{ gridColumn: "1 / -1" }}>
                   <span className="detail-label">Access Permissions</span>
@@ -1455,6 +1583,122 @@ const Admins = () => {
         onConfirm={handleConfirmDelete}
         onCancel={() => setDeleteTarget(null)}
       />
+
+      {isAssignSocietyModalOpen && (
+        <div className="modal-overlay" onClick={() => !isAssigningSociety && setIsAssignSocietyModalOpen(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Assign Society to Admins</h2>
+              <button
+                className="close-button"
+                onClick={() => !isAssigningSociety && setIsAssignSocietyModalOpen(false)}
+                disabled={isAssigningSociety}
+              >
+                &times;
+              </button>
+            </div>
+            {formError && (
+              <div
+                className="error-message"
+                style={{
+                  backgroundColor: "rgba(231, 76, 60, 0.1)",
+                  color: "#e74c3c",
+                  padding: "10px",
+                  borderRadius: "6px",
+                  marginBottom: "15px",
+                  border: "1px solid rgba(231, 76, 60, 0.2)",
+                }}
+              >
+                {formError}
+              </div>
+            )}
+            <form onSubmit={handleAssignSociety}>
+              <div className="form-group mb-4">
+                <label>Society <span className="text-danger">*</span></label>
+                <SocietySelect
+                  value={assignSocietyId}
+                  onChange={setAssignSocietyId}
+                  required
+                />
+              </div>
+
+              <div className="form-group mb-4">
+                <label>Assign Admins <span className="text-danger">*</span></label>
+                <div style={{ marginBottom: "10px", display: "flex", alignItems: "center", gap: "8px" }}>
+                  <input 
+                    type="checkbox" 
+                    id="assignSocietyAllAdminsCheck"
+                    checked={assignSocietyAllAdmins}
+                    onChange={(e) => {
+                      setAssignSocietyAllAdmins(e.target.checked);
+                      if (e.target.checked) setAssignSocietyAdminIds([]);
+                    }}
+                    style={{ cursor: "pointer" }}
+                  />
+                  <label htmlFor="assignSocietyAllAdminsCheck" style={{ margin: 0, cursor: "pointer", fontSize: "0.9rem" }}>
+                    Assign to All Admins
+                  </label>
+                </div>
+                
+                {!assignSocietyAllAdmins && (
+                  <select
+                    multiple
+                    value={assignSocietyAdminIds}
+                    onChange={(e) => {
+                      const options = e.target.options;
+                      const selected = [];
+                      for (let i = 0; i < options.length; i++) {
+                        if (options[i].selected) selected.push(options[i].value);
+                      }
+                      setAssignSocietyAdminIds(selected);
+                    }}
+                    style={{
+                      width: "100%",
+                      padding: "10px",
+                      backgroundColor: "var(--bg-dark)",
+                      color: "var(--text-main)",
+                      border: "1px solid var(--border-color)",
+                      borderRadius: "8px",
+                      minHeight: "100px"
+                    }}
+                  >
+                    {admins
+                      .filter((a) => a.role === "admin" || a.role === "ADMIN")
+                      .map((a) => (
+                        <option key={a._id || a.id} value={a._id || a.id}>
+                          {a.name} ({a.phone})
+                        </option>
+                      ))}
+                  </select>
+                )}
+                {!assignSocietyAllAdmins && (
+                  <p className="text-muted" style={{ fontSize: "0.85rem", marginTop: "8px" }}>
+                    Hold Ctrl (Windows) or Command (Mac) to select multiple admins.
+                  </p>
+                )}
+              </div>
+
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setIsAssignSocietyModalOpen(false)}
+                  disabled={isAssigningSociety}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={isAssigningSociety}
+                >
+                  {isAssigningSociety ? "Assigning..." : "Assign Society"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {licenseModalData && (
         <div className="modal-overlay custom-modal-overlay">
