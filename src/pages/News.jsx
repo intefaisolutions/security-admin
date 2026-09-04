@@ -29,7 +29,7 @@ const News = () => {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [category, setCategory] = useState("General Notice");
-  const [society, setSociety] = useState("");
+  const [societies, setSocieties] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
   const [formError, setFormError] = useState(null);
 
@@ -41,8 +41,9 @@ const News = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await getNews();
-      setNewsList(Array.isArray(data) ? data : []);
+      const resData = await getNews();
+      const items = Array.isArray(resData?.data) ? resData.data : (Array.isArray(resData) ? resData : []);
+      setNewsList(items);
     } catch (err) {
       console.error("Failed to load community news:", err);
       setError(getErrorMessage(err, "Failed to load community announcements."));
@@ -88,7 +89,7 @@ const News = () => {
     setTitle("");
     setContent("");
     setCategory("General Notice");
-    setSociety("");
+    setSocieties([]);
     setFormError(null);
     setIsModalOpen(true);
   };
@@ -98,11 +99,13 @@ const News = () => {
     setTitle(item.title || "");
     setContent(item.content || item.description || "");
     setCategory(item.category || "General Notice");
-    setSociety(
-      typeof item.society === "object"
-        ? item.society?._id || item.society?.id || ""
-        : item.society || "",
-    );
+    let mappedSocieties = [];
+    if (item.societies && item.societies.length > 0) {
+       mappedSocieties = item.societies.map(s => s.id || s._id);
+    } else if (item.society) {
+       mappedSocieties = [typeof item.society === "object" ? item.society?._id || item.society?.id : item.society];
+    }
+    setSocieties(mappedSocieties);
     setFormError(null);
     setIsModalOpen(true);
   };
@@ -113,8 +116,8 @@ const News = () => {
       setFormError("Announcement title and content are required.");
       return;
     }
-    if (isSuperAdmin && !society) {
-      setFormError("Please select a society.");
+    if (isSuperAdmin && (!societies || societies.length === 0)) {
+      setFormError("Please select at least one society.");
       return;
     }
 
@@ -126,7 +129,7 @@ const News = () => {
         body: content.trim(),
         category: category.trim(),
       };
-      if (isSuperAdmin && society) payload.society = society;
+      if (isSuperAdmin && societies && societies.length > 0) payload.societies = societies;
 
       if (editingItem) {
         await updateNews(editingItem._id || editingItem.id, payload);
@@ -252,10 +255,12 @@ const News = () => {
                   const id = item._id || item.id;
                   const itemTitle = item.title || "Untitled Notice";
                   const itemCat = item.category || "General";
-                  const societyName =
-                    typeof item.society === "object"
-                      ? item.society?.name || "Society"
-                      : item.society || "N/A";
+                  let societyName = "N/A";
+                  if (item.societies && item.societies.length > 0) {
+                    societyName = item.societies.map(s => s.name).join(', ');
+                  } else if (item.society) {
+                    societyName = typeof item.society === "object" ? item.society?.name : item.society;
+                  }
 
                   return (
                     <tr key={id} className="table-row-hover">
@@ -364,8 +369,9 @@ const News = () => {
                 )}
                 {isSuperAdmin && (
                   <SocietySelect
-                    value={society}
-                    onChange={setSociety}
+                    value={societies}
+                    onChange={setSocieties}
+                    isMulti={true}
                     required
                   />
                 )}

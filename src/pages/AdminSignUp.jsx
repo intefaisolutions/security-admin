@@ -176,8 +176,7 @@ const AdminSignUp = () => {
                 />
                 <button
                   type="button"
-                  className="input-password-toggle"
-                  onClick={() => setShowPassword(!showPassword)}
+                  className="input-password-toggle password-eye-btn" onClick={() => setShowPassword(!showPassword)}
                   tabIndex="-1"
                 >
                   {showPassword ? (

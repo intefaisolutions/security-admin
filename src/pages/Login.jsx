@@ -27,8 +27,8 @@ const Login = () => {
       setErrorMsg('Please enter both phone number and password.');
       return;
     }
-    if (!requiresLicenseKey && !/^\d{10}$/.test(phone.trim())) {
-      setErrorMsg('Phone number must be exactly 10 digits.');
+    if (!requiresLicenseKey && !/^\d{10}$/.test(phone.trim()) && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(phone.trim())) {
+      setErrorMsg('Please enter a valid 10-digit phone number or email address.');
       return;
     }
 
@@ -145,7 +145,7 @@ const Login = () => {
           <form onSubmit={handleSubmit} className="login-form">
             {!requiresLicenseKey ? (
               <div className="form-group">
-                <label htmlFor="phone">Phone Number</label>
+                <label htmlFor="phone">Phone Number or Email</label>
                 <div className="input-with-icon">
                   <span className="input-icon">
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -155,9 +155,9 @@ const Login = () => {
                   <input
                     id="phone"
                     type="text"
-                    placeholder="Enter registered phone number"
+                    placeholder="Enter phone number or email"
                     value={phone}
-                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                    onChange={(e) => setPhone(e.target.value)}
                     disabled={isSubmitting}
                     required
                   />
@@ -212,8 +212,7 @@ const Login = () => {
                   />
                   <button
                     type="button"
-                    className="input-password-toggle"
-                    onClick={() => setShowPassword(!showPassword)}
+                    className="input-password-toggle password-eye-btn" onClick={() => setShowPassword(!showPassword)}
                     tabIndex="-1"
                   >
                     {showPassword ? (

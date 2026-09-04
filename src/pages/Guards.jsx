@@ -535,7 +535,7 @@ const Guards = () => {
                       </span>
                     )}
                   </label>
-                  <div style={{ position: 'relative' }}>
+                  <div className="input-with-icon">
                     <input
                       id="guardPassword"
                       type={showPassword ? "text" : "password"}
@@ -551,21 +551,8 @@ const Guards = () => {
                     />
                     <button
                       type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      style={{
-                        position: 'absolute',
-                        right: '12px',
-                        top: '50%',
-                        transform: 'translateY(-50%)',
-                        background: 'none',
-                        border: 'none',
-                        color: 'var(--text-muted)',
-                        cursor: 'pointer',
-                        padding: 0,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                      }}
+                      className="input-password-toggle password-eye-btn" onClick={() => setShowPassword(!showPassword)}
+                      
                     >
                       {showPassword ? (
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

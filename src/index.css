@@ -163,6 +163,21 @@ textarea {
   font-size: inherit;
 }
 
+.password-eye-btn {
+  color: #94a3b8 !important;
+}
+
+/* Override browser autofill styling for all inputs */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px var(--bg-input) inset !important;
+  -webkit-text-fill-color: var(--text-main) !important;
+  caret-color: var(--text-main) !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
 /* Scrollbar Customization */
 * {
   scrollbar-width: thin;

@@ -84,6 +84,7 @@ const Plans = () => {
   const [formName, setFormName] = useState("");
   const [formDescription, setFormDescription] = useState("");
   const [formMonthlyPrice, setFormMonthlyPrice] = useState("");
+  const [formQuarterlyPrice, setFormQuarterlyPrice] = useState("");
   const [formYearlyPrice, setFormYearlyPrice] = useState("");
   const [formLimits, setFormLimits] = useState({
     maxSubAdmins: "",
@@ -174,6 +175,7 @@ const Plans = () => {
     setFormName("");
     setFormDescription("");
     setFormMonthlyPrice("");
+    setFormQuarterlyPrice("");
     setFormYearlyPrice("");
     setFormLimits({
       maxSubAdmins: "",
@@ -194,6 +196,11 @@ const Plans = () => {
     setFormMonthlyPrice(
       plan.monthlyPrice !== undefined && plan.monthlyPrice !== null
         ? String(plan.monthlyPrice)
+        : "",
+    );
+    setFormQuarterlyPrice(
+      plan.quarterlyPrice !== undefined && plan.quarterlyPrice !== null
+        ? String(plan.quarterlyPrice)
         : "",
     );
     setFormYearlyPrice(
@@ -249,6 +256,8 @@ const Plans = () => {
         description: formDescription.trim(),
         monthlyPrice:
           formMonthlyPrice !== "" ? Number(formMonthlyPrice) : undefined,
+        quarterlyPrice:
+          formQuarterlyPrice !== "" ? Number(formQuarterlyPrice) : undefined,
         yearlyPrice:
           formYearlyPrice !== "" ? Number(formYearlyPrice) : undefined,
         limits: buildLimits(),
@@ -899,7 +908,7 @@ const Plans = () => {
                   />
                 </div>
 
-                <div className="dashboard-content-grid" style={{ gap: "12px" }}>
+                <div className="dashboard-content-grid" style={{ gap: "12px", gridTemplateColumns: "repeat(3, 1fr)" }}>
                   <div className="form-group">
                     <label htmlFor="planMonthlyPrice">Monthly Price ($)</label>
                     <input
@@ -910,6 +919,18 @@ const Plans = () => {
                       placeholder="e.g. 49.99"
                       value={formMonthlyPrice}
                       onChange={(e) => setFormMonthlyPrice(e.target.value)}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="planQuarterlyPrice">Quarterly Price ($)</label>
+                    <input
+                      id="planQuarterlyPrice"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="e.g. 149.99"
+                      value={formQuarterlyPrice}
+                      onChange={(e) => setFormQuarterlyPrice(e.target.value)}
                     />
                   </div>
                   <div className="form-group">

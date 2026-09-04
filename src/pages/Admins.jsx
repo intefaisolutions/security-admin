@@ -10,6 +10,7 @@ import {
   updateAdminPlan,
   deleteAdmin,
   getPlans,
+  resendAdminLicenseEmail,
 } from "../api/admin";
 import { useAuth } from "../context/AuthContext";
 import { useDebounce } from "../hooks/useDebounce";
@@ -107,6 +108,7 @@ const Admins = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [formAssignedAdmin, setFormAssignedAdmin] = useState("");
   const [licenseModalData, setLicenseModalData] = useState(null);
+  const [isResending, setIsResending] = useState(false);
   const [formSociety, setFormSociety] = useState("");
   const [formRole, setFormRole] = useState("sub_admin");
   const [formPermissions, setFormPermissions] = useState([]);
@@ -480,6 +482,7 @@ const Admins = () => {
           setLicenseModalData({
             key: response.licenseKey || "Check console/SMS",
             email: formEmail.trim(),
+            id: response.id || response._id,
           });
         } else if (formRole === "super_sub_admin") {
           response = await createSuperSubAdmin({
@@ -526,6 +529,19 @@ const Admins = () => {
       );
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleResendEmail = async () => {
+    if (!licenseModalData?.id) return;
+    setIsResending(true);
+    try {
+      await resendAdminLicenseEmail(licenseModalData.id);
+      alert("Email resent successfully.");
+    } catch (err) {
+      alert(getErrorMessage(err, "Failed to resend email."));
+    } finally {
+      setIsResending(false);
     }
   };
 
@@ -912,7 +928,7 @@ const Admins = () => {
                   />
                 </div>
 
-                {formRole === "admin" && (
+                {["admin", "super_sub_admin", "sub_admin"].includes(formRole) && (
                   <div className="form-group mb-4">
                     <label htmlFor="adminEmail">Email Address</label>
                     <input
@@ -933,7 +949,7 @@ const Admins = () => {
                           setFormError(null);
                         }
                       }}
-                      required
+                      required={formRole === "admin"}
                     />
                   </div>
                 )}
@@ -953,7 +969,7 @@ const Admins = () => {
                         <span className="text-danger">*</span>
                       )}
                     </label>
-                    <div style={{ position: 'relative' }}>
+                    <div className="input-with-icon">
                       <input
                         id="adminPassword"
                         type={showPassword ? "text" : "password"}
@@ -968,21 +984,8 @@ const Admins = () => {
                       />
                       <button
                         type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        style={{
-                          position: 'absolute',
-                          right: '12px',
-                          top: '50%',
-                          transform: 'translateY(-50%)',
-                          background: 'none',
-                          border: 'none',
-                          color: 'var(--text-muted)',
-                          cursor: 'pointer',
-                          padding: 0,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center'
-                        }}
+                        className="input-password-toggle password-eye-btn" onClick={() => setShowPassword(!showPassword)}
+                        
                       >
                         {showPassword ? (
                           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1004,7 +1007,7 @@ const Admins = () => {
                     <label htmlFor="adminConfirmPassword">
                       Confirm Password <span className="text-danger">*</span>
                     </label>
-                    <div style={{ position: 'relative' }}>
+                    <div className="input-with-icon">
                       <input
                         id="adminConfirmPassword"
                         type={showConfirmPassword ? "text" : "password"}
@@ -1016,20 +1019,7 @@ const Admins = () => {
                       <button
                         type="button"
                         onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                        style={{
-                          position: 'absolute',
-                          right: '12px',
-                          top: '50%',
-                          transform: 'translateY(-50%)',
-                          background: 'none',
-                          border: 'none',
-                          color: 'var(--text-muted)',
-                          cursor: 'pointer',
-                          padding: 0,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center'
-                        }}
+                        
                       >
                         {showConfirmPassword ? (
                           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1585,8 +1575,8 @@ const Admins = () => {
       />
 
       {isAssignSocietyModalOpen && (
-        <div className="modal-overlay" onClick={() => !isAssigningSociety && setIsAssignSocietyModalOpen(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-backdrop" onClick={() => !isAssigningSociety && setIsAssignSocietyModalOpen(false)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>Assign Society to Admins</h2>
               <button
@@ -1701,13 +1691,15 @@ const Admins = () => {
       )}
 
       {licenseModalData && (
-        <div className="modal-overlay custom-modal-overlay">
+        <div className="modal-backdrop" onClick={() => setLicenseModalData(null)}>
           <div
-            className="modal-content custom-modal-content"
-            style={{ maxWidth: "400px", textAlign: "center" }}
+            className="modal-card"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: "400px", textAlign: "center", position: "relative" }}
           >
             <button
               className="modal-close-btn"
+              
               onClick={() => setLicenseModalData(null)}
             >
               <svg
@@ -1864,22 +1856,28 @@ const Admins = () => {
                     background: "#0ea5e9",
                     borderColor: "#0ea5e9",
                   }}
+                  onClick={handleResendEmail}
+                  disabled={isResending}
                 >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
-                    <polyline points="22,6 12,13 2,6"></polyline>
-                  </svg>
-                  Resend Email
+                  {isResending ? (
+                    <div className="loading-spinner" style={{ width: "16px", height: "16px", border: "2px solid #fff", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 1s linear infinite" }}></div>
+                  ) : (
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                      <polyline points="22,6 12,13 2,6"></polyline>
+                    </svg>
+                  )}
+                  {isResending ? "Resending..." : "Resend Email"}
                 </button>
               </div>
               <button

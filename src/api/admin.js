@@ -38,7 +38,7 @@ export const deleteService = async (id) => extractData(await api.delete(`/admin/
 // ============================================================================
 // SOCIETIES ENDPOINTS (SUPER ADMIN ONLY)
 // ============================================================================
-export const getSocieties = async () => extractData(await api.get("/admin/societies"));
+export const getSocieties = async (params = {}, options = {}) => extractData(await api.get("/admin/societies", { params, ...options }));
 export const createSociety = async (data) => extractData(await api.post("/admin/societies", data));
 export const updateSociety = async (id, data) => extractData(await api.put(`/admin/societies/${id}`, data));
 export const deleteSociety = async (id) => extractData(await api.delete(`/admin/societies/${id}`));
@@ -52,6 +52,7 @@ export const createAdmin = async (data) => extractData(await api.post("/admin/ad
 export const createSubAdmin = async (data) => extractData(await api.post("/admin/sub-admins", data));
 export const createSecretary = async (data) => extractData(await api.post("/admin/secretaries", data));
 export const updateAdmin = async (id, data) => extractData(await api.put(`/admin/admins/${id}`, data));
+export const resendAdminLicenseEmail = async (id) => extractData(await api.post(`/admin/admins/${id}/resend-license`));
 export const updateAdminPlan = async (id, planId) => extractData(await api.put(`/admin/admins/${id}/plan`, { planId }));
 export const deleteAdmin = async (id) => extractData(await api.delete(`/admin/admins/${id}`));
 

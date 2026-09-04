@@ -170,8 +170,7 @@ const ChangePassword = () => {
                 />
                 <button
                   type="button"
-                  className="input-password-toggle"
-                  onClick={() => setShowPasswords(!showPasswords)}
+                  className="input-password-toggle password-eye-btn" onClick={() => setShowPasswords(!showPasswords)}
                   tabIndex="-1"
                 >
                   {showPasswords ? (

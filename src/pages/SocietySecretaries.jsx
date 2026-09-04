@@ -824,7 +824,7 @@ const SocietySecretaries = () => {
                         <span className="text-danger">*</span>
                       )}
                     </label>
-                    <div style={{ position: 'relative' }}>
+                    <div className="input-with-icon">
                       <input
                         id="adminPassword"
                         type={showPassword ? "text" : "password"}
@@ -839,21 +839,8 @@ const SocietySecretaries = () => {
                       />
                       <button
                         type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        style={{
-                          position: 'absolute',
-                          right: '12px',
-                          top: '50%',
-                          transform: 'translateY(-50%)',
-                          background: 'none',
-                          border: 'none',
-                          color: 'var(--text-muted)',
-                          cursor: 'pointer',
-                          padding: 0,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center'
-                        }}
+                        className="input-password-toggle password-eye-btn" onClick={() => setShowPassword(!showPassword)}
+                        
                       >
                         {showPassword ? (
                           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -875,7 +862,7 @@ const SocietySecretaries = () => {
                     <label htmlFor="adminConfirmPassword">
                       Confirm Password <span className="text-danger">*</span>
                     </label>
-                    <div style={{ position: 'relative' }}>
+                    <div className="input-with-icon">
                       <input
                         id="adminConfirmPassword"
                         type={showConfirmPassword ? "text" : "password"}
@@ -887,20 +874,7 @@ const SocietySecretaries = () => {
                       <button
                         type="button"
                         onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                        style={{
-                          position: 'absolute',
-                          right: '12px',
-                          top: '50%',
-                          transform: 'translateY(-50%)',
-                          background: 'none',
-                          border: 'none',
-                          color: 'var(--text-muted)',
-                          cursor: 'pointer',
-                          padding: 0,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center'
-                        }}
+                        
                       >
                         {showConfirmPassword ? (
                           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1463,13 +1437,15 @@ const SocietySecretaries = () => {
       />
 
       {licenseModalData && (
-        <div className="modal-overlay custom-modal-overlay">
+        <div className="modal-backdrop" onClick={() => setLicenseModalData(null)}>
           <div
-            className="modal-content custom-modal-content"
-            style={{ maxWidth: "400px", textAlign: "center" }}
+            className="modal-card"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: "400px", textAlign: "center", position: "relative" }}
           >
             <button
               className="modal-close-btn"
+              
               onClick={() => setLicenseModalData(null)}
             >
               <svg

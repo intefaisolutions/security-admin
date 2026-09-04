@@ -41,7 +41,7 @@ const EmergencyAlerts = () => {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [severity, setSeverity] = useState("High");
-  const [society, setSociety] = useState("");
+  const [societies, setSocieties] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
   const [createError, setCreateError] = useState(null);
 
@@ -53,8 +53,9 @@ const EmergencyAlerts = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await getAlerts();
-      setAlerts(Array.isArray(data) ? data : []);
+      const resData = await getAlerts();
+      const items = Array.isArray(resData?.data) ? resData.data : (Array.isArray(resData) ? resData : []);
+      setAlerts(items);
     } catch (err) {
       console.error("Failed to load alerts:", err);
       setError(getErrorMessage(err, "Failed to load emergency alerts."));
@@ -116,8 +117,8 @@ const EmergencyAlerts = () => {
       setCreateError("Alert title and description are required.");
       return;
     }
-    if (isSuperAdmin && !society) {
-      setCreateError("Please select a society for this alert.");
+    if (isSuperAdmin && (!societies || societies.length === 0)) {
+      setCreateError("Please select at least one society for this alert.");
       return;
     }
 
@@ -129,12 +130,13 @@ const EmergencyAlerts = () => {
         description: description.trim(),
         severity,
       };
-      if (isSuperAdmin && society) payload.society = society;
+      if (isSuperAdmin && societies && societies.length > 0) payload.societies = societies;
 
       await createAlert(payload);
       setIsCreateOpen(false);
       setTitle("");
       setDescription("");
+      setSocieties([]);
       await fetchAlertsList();
     } catch (err) {
       setCreateError(getErrorMessage(err, "Failed to create emergency alert."));
@@ -248,10 +250,12 @@ const EmergencyAlerts = () => {
                 {paginatedAlerts.map((item) => {
                   const id = item._id || item.id;
                   const itemTitle = item.title || item.type || "Emergency";
-                  const societyName =
-                    typeof item.society === "object"
-                      ? item.society?.name || "Society"
-                      : item.society || "N/A";
+                  let societyName = "N/A";
+                  if (item.societies && item.societies.length > 0) {
+                    societyName = item.societies.map(s => s.name).join(', ');
+                  } else if (item.society) {
+                    societyName = typeof item.society === "object" ? item.society?.name : item.society;
+                  }
                   const status = item.status || "Active";
                   const severityText = item.severity || "Critical";
 
@@ -371,8 +375,9 @@ const EmergencyAlerts = () => {
                 )}
                 {isSuperAdmin && (
                   <SocietySelect
-                    value={society}
-                    onChange={setSociety}
+                    value={societies}
+                    onChange={setSocieties}
+                    isMulti={true}
                     required
                   />
                 )}

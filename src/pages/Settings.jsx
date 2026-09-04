@@ -609,8 +609,7 @@ const Settings = () => {
                     />
                     <button
                       type="button"
-                      className="input-password-toggle"
-                      onClick={() => setShowPasswords(!showPasswords)}
+                      className="input-password-toggle password-eye-btn" onClick={() => setShowPasswords(!showPasswords)}
                       tabIndex="-1"
                       aria-label={
                         showPasswords ? "Hide passwords" : "Show passwords"

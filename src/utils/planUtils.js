@@ -24,7 +24,7 @@ export const getBillingPriceForCycle = (plan, cycle = "monthly") => {
   const monthlyPrice = Number(plan?.monthlyPrice ?? 0);
 
   if (normalizedCycle === "quarterly") {
-    return monthlyPrice * 3;
+    return Number(plan?.quarterlyPrice ?? 0) || monthlyPrice * 3;
   }
 
   if (normalizedCycle === "yearly") {
@@ -56,6 +56,10 @@ export const normalizePlanLimits = (user) => {
     monthlyPrice:
       plan.monthlyPrice !== undefined && plan.monthlyPrice !== null
         ? Number(plan.monthlyPrice)
+        : null,
+    quarterlyPrice:
+      plan.quarterlyPrice !== undefined && plan.quarterlyPrice !== null
+        ? Number(plan.quarterlyPrice)
         : null,
     yearlyPrice:
       plan.yearlyPrice !== undefined && plan.yearlyPrice !== null
@@ -116,6 +120,7 @@ export const buildPlanPayload = (selectedPlan, billingCycle = "monthly") => {
       "Standard",
     billingCycle,
     monthlyPrice: selectedPlan.monthlyPrice,
+    quarterlyPrice: selectedPlan.quarterlyPrice,
     yearlyPrice: selectedPlan.yearlyPrice,
     limits: {
       maxSubAdmins: limits.maxSubAdmins ?? limits.subAdminLimit ?? null,
