@@ -10,6 +10,7 @@ import {
   updateAdminPlan,
   deleteAdmin,
   getPlans,
+  updateSuperSubAdminStatus,
 } from "../api/admin";
 import { useAuth } from "../context/AuthContext";
 import { useDebounce } from "../hooks/useDebounce";
@@ -18,6 +19,7 @@ import Pagination from "../components/Pagination";
 import LoadingSpinner from "../components/LoadingSpinner";
 import StatusBadge from "../components/StatusBadge";
 import ConfirmDialog from "../components/ConfirmDialog";
+import Toast from "../components/Toast";
 import { getErrorMessage } from "../utils/getErrorMessage";
 import {
   normalizePlanLimits,
@@ -88,6 +90,8 @@ const SuperSubAdmins = () => {
   const [formConfirmPassword, setFormConfirmPassword] = useState("");
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [formAssignedAdmin, setFormAssignedAdmin] = useState("");
+  const [availableAdmins, setAvailableAdmins] = useState([]);
+  const [selectedAdminIds, setSelectedAdminIds] = useState([]);
   const [licenseModalData, setLicenseModalData] = useState(null);
   const [formSocieties, setFormSocieties] = useState([]);
   const [formRole, setFormRole] = useState("super_sub_admin");
@@ -105,6 +109,9 @@ const SuperSubAdmins = () => {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Toast State
+  const [toast, setToast] = useState(null);
+
   const fetchAdminsList = async () => {
     if (!canManageAdmins) return;
     setIsLoading(true);
@@ -118,6 +125,16 @@ const SuperSubAdmins = () => {
       setError(getErrorMessage(err, "Failed to load admin accounts list."));
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchAvailableAdmins = async () => {
+    try {
+      const data = await getAdmins();
+      const adminList = Array.isArray(data) ? data : [];
+      setAvailableAdmins(adminList.filter((a) => a.role === "admin"));
+    } catch (err) {
+      console.error("Failed to load available admins:", err);
     }
   };
 
@@ -195,6 +212,7 @@ const SuperSubAdmins = () => {
     setFormPassword("");
     setFormConfirmPassword("");
     setFormAssignedAdmin("");
+    setSelectedAdminIds([]);
     setFormRole("super_sub_admin");
     setFormPermissions(
       isSuperAdmin
@@ -209,6 +227,8 @@ const SuperSubAdmins = () => {
     setFormSocieties(isSuperAdmin ? [] : userSocietyId ? [userSocietyId] : []);
     setFormError(null);
     setIsModalOpen(true);
+    // Fetch available admins for assignment
+    fetchAvailableAdmins();
   };
 
   const handleOpenEdit = (admin) => {
@@ -417,6 +437,7 @@ const SuperSubAdmins = () => {
             email: formEmail.trim(),
             password: formPassword,
             permissions: formPermissions,
+            assignedAdminIds: selectedAdminIds,
           });
           alert("Super Sub Admin created successfully.");
         } else if (formRole === "sub_admin") {
@@ -472,6 +493,54 @@ const SuperSubAdmins = () => {
       alert(getErrorMessage(err, "Failed to delete admin account."));
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleToggleStatus = async (admin) => {
+    const targetId = admin._id || admin.id;
+    const currentIsActive = admin.isActive === true || admin.status === 'active';
+    const nextStatus = !currentIsActive;
+
+    // Optimistically update local state
+    setAdmins(prev =>
+      prev.map(a =>
+        (a._id || a.id) === targetId
+          ? { ...a, isActive: nextStatus, status: nextStatus ? 'active' : 'inactive' }
+          : a
+      )
+    );
+
+    try {
+      const response = await updateSuperSubAdminStatus(targetId, {
+        isActive: nextStatus,
+        status: nextStatus ? 'active' : 'inactive'
+      });
+      setToast({
+        message: `Admin ${nextStatus ? "activated" : "deactivated"} successfully.`,
+        type: "success"
+      });
+      // Update state with server response instead of refetching
+      setAdmins(prev =>
+        prev.map(a =>
+          (a._id || a.id) === targetId
+            ? { ...a, ...response, isActive: nextStatus, status: nextStatus ? 'active' : 'inactive' }
+            : a
+        )
+      );
+    } catch (err) {
+      console.error("Failed to toggle status:", err);
+      // Revert optimistic update on error
+      setAdmins(prev =>
+        prev.map(a =>
+          (a._id || a.id) === targetId
+            ? { ...a, isActive: currentIsActive, status: currentIsActive ? 'active' : 'inactive' }
+            : a
+        )
+      );
+      setToast({
+        message: getErrorMessage(err, "Failed to update admin status."),
+        type: "error"
+      });
     }
   };
 
@@ -574,7 +643,6 @@ const SuperSubAdmins = () => {
                 <tr>
                   <th>Admin Name</th>
                   <th>Phone Number</th>
-                  <th>Role</th>
                   <th>Access</th>
                   <th>Status</th>
                   <th className="text-right">Actions</th>
@@ -594,6 +662,7 @@ const SuperSubAdmins = () => {
                         ? item.society?.name || "Society"
                         : item.society || "N/A";
                   const isVerified = item.isVerified !== false;
+                  const isCurrentlyActive = Boolean(item.isActive) || item.status === 'active';
                   const permissions = Array.isArray(item.permissions)
                     ? item.permissions
                     : [];
@@ -620,23 +689,17 @@ const SuperSubAdmins = () => {
                       </td>
                       <td>{phone}</td>
 
-                      <td>
-                        {item.role === "super_admin"
-                          ? "Super Admin"
-                          : item.role === "super_sub_admin"
-                            ? "Super Sub Admin"
-                            : item.role === "sub_admin"
-                              ? "Sub Admin"
-                              : item.role === "secretary"
-                                ? "Society Secretary"
-                                : "Admin"}
-                      </td>
-
                       <td>{permissionLabels || "No access assigned"}</td>
                       <td>
-                        <StatusBadge
-                          status={isVerified ? "Active" : "Pending"}
-                        />
+                        <div
+                          style={{ cursor: "pointer" }}
+                          onClick={() => handleToggleStatus(item)}
+                          title={`Click to ${isCurrentlyActive ? "deactivate" : "activate"}`}
+                        >
+                          <StatusBadge
+                            status={isCurrentlyActive ? "Active" : "Inactive"}
+                          />
+                        </div>
                       </td>
                       <td className="text-right">
                         <div className="action-buttons-group">
@@ -658,6 +721,38 @@ const SuperSubAdmins = () => {
                             >
                               <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
                               <circle cx="12" cy="12" r="3" />
+                            </svg>
+                          </button>
+                          <button
+                            className="icon-action-btn"
+                            onClick={() => handleToggleStatus(item)}
+                            title={isCurrentlyActive ? "Deactivate" : "Activate"}
+                            style={{
+                              color: isCurrentlyActive ? "var(--text-muted)" : "var(--primary-color)"
+                            }}
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="16"
+                              height="16"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              {isCurrentlyActive ? (
+                                <>
+                                  <rect x="1" y="5" width="22" height="14" rx="7" ry="7" />
+                                  <circle cx="16" cy="12" r="3" />
+                                </>
+                              ) : (
+                                <>
+                                  <rect x="1" y="5" width="22" height="14" rx="7" ry="7" />
+                                  <circle cx="8" cy="12" r="3" />
+                                </>
+                              )}
                             </svg>
                           </button>
                           {isSuperAdmin && (
@@ -857,7 +952,7 @@ const SuperSubAdmins = () => {
                     <label htmlFor="adminConfirmPassword">
                       Confirm Password <span className="text-danger">*</span>
                     </label>
-                    <div className="input-with-icon">
+                    <div style={{ position: 'relative' }}>
                       <input
                         id="adminConfirmPassword"
                         type={showConfirmPassword ? "text" : "password"}
@@ -869,7 +964,19 @@ const SuperSubAdmins = () => {
                       <button
                         type="button"
                         onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                        
+                        style={{
+                          position: 'absolute',
+                          right: '12px',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          background: 'transparent',
+                          border: 'none',
+                          cursor: 'pointer',
+                          padding: '0',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
                       >
                         {showConfirmPassword ? (
                           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -919,6 +1026,100 @@ const SuperSubAdmins = () => {
                             </option>
                           ))}
                       </select>
+                    </div>
+                  )}
+
+                {isSuperAdmin &&
+                  !editingAdmin &&
+                  formRole === "super_sub_admin" && (
+                    <div className="form-group mb-4">
+                      <label>Assign Admins</label>
+                      <div
+                        style={{
+                          maxHeight: "150px",
+                          overflowY: "auto",
+                          border: "1px solid var(--border-color)",
+                          borderRadius: "8px",
+                          backgroundColor: "var(--bg-card)",
+                        }}
+                      >
+                        {availableAdmins.length === 0 ? (
+                          <div className="text-muted" style={{ padding: "14px" }}>
+                            No admins available
+                          </div>
+                        ) : (
+                          availableAdmins.map((admin) => (
+                            <div
+                              key={admin._id || admin.id}
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "12px",
+                                padding: "10px 14px",
+                                borderBottom: "1px solid var(--border-color)",
+                                cursor: "pointer",
+                                transition: "background-color 0.2s",
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = "rgba(51, 65, 85, 0.5)";
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = "transparent";
+                              }}
+                              onClick={(e) => {
+                                if (e.target.type !== "checkbox") {
+                                  const checkbox = e.currentTarget.querySelector('input[type="checkbox"]');
+                                  checkbox.click();
+                                }
+                              }}
+                            >
+                              <input
+                                type="checkbox"
+                                id={`admin-${admin._id || admin.id}`}
+                                checked={selectedAdminIds.includes(
+                                  admin._id || admin.id,
+                                )}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedAdminIds([
+                                      ...selectedAdminIds,
+                                      admin._id || admin.id,
+                                    ]);
+                                  } else {
+                                    setSelectedAdminIds(
+                                      selectedAdminIds.filter(
+                                        (id) => id !== (admin._id || admin.id),
+                                      ),
+                                    );
+                                  }
+                                }}
+                                style={{
+                                  width: "18px",
+                                  height: "18px",
+                                  cursor: "pointer",
+                                  accentColor: "var(--primary-color)",
+                                }}
+                              />
+                              <label
+                                htmlFor={`admin-${admin._id || admin.id}`}
+                                style={{
+                                  flex: 1,
+                                  cursor: "pointer",
+                                  fontSize: "0.9rem",
+                                  color: "var(--text-main)",
+                                  fontWeight: 500,
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <div style={{ fontWeight: 600 }}>{admin.name}</div>
+                                <div style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>
+                                  {admin.phone}
+                                </div>
+                              </label>
+                            </div>
+                          ))
+                        )}
+                      </div>
                     </div>
                   )}
 
@@ -1435,6 +1636,15 @@ const SuperSubAdmins = () => {
         onConfirm={handleConfirmDelete}
         onCancel={() => setDeleteTarget(null)}
       />
+
+      {/* Toast Notification */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
 
       {licenseModalData && (
         <div className="modal-backdrop" onClick={() => setLicenseModalData(null)}>

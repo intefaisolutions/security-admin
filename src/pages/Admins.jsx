@@ -11,6 +11,7 @@ import {
   deleteAdmin,
   getPlans,
   resendAdminLicenseEmail,
+  getAdminSocieties,
 } from "../api/admin";
 import { useAuth } from "../context/AuthContext";
 import { useDebounce } from "../hooks/useDebounce";
@@ -130,6 +131,14 @@ const Admins = () => {
   // Delete State
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Societies View Modal State
+  const [isSocietiesModalOpen, setIsSocietiesModalOpen] = useState(false);
+  const [societiesSearch, setSocietiesSearch] = useState("");
+  const [societiesPage, setSocietiesPage] = useState(1);
+  const [societiesLoading, setSocietiesLoading] = useState(false);
+  const [allSocieties, setAllSocieties] = useState([]);
+  const SOCIETIES_PER_PAGE = 10;
 
   const fetchAdminsList = async () => {
     if (!canManageAdmins) return;
@@ -252,7 +261,59 @@ const Admins = () => {
   const handleOpenDetail = (admin) => {
     setDetailItem(admin);
     setIsDetailOpen(true);
+    // Reset societies modal state
+    setSocietiesSearch("");
+    setSocietiesPage(1);
+    setAllSocieties([]);
   };
+
+  const handleOpenSocietiesModal = async () => {
+    if (!detailItem?.id) return;
+    setIsSocietiesModalOpen(true);
+    setSocietiesLoading(true);
+    try {
+      const response = await getAdminSocieties(detailItem.id, {
+        page: 1,
+        limit: 1000, // Load all for client-side filtering
+      });
+      setAllSocieties(response.societies || []);
+    } catch (err) {
+      console.error("Failed to load societies:", err);
+      setAllSocieties([]);
+    } finally {
+      setSocietiesLoading(false);
+    }
+  };
+
+  // Debounced search handler
+  const debouncedSocietiesSearch = useDebounce(societiesSearch, 300);
+
+  // Filter societies based on search
+  const filteredSocieties = useMemo(() => {
+    if (!debouncedSocietiesSearch.trim()) return allSocieties;
+    const term = debouncedSocietiesSearch.toLowerCase();
+    return allSocieties.filter((society) => {
+      const name = society?.name || "";
+      const address = society?.address || "";
+      const id = society?.id || society?._id || "";
+      return (
+        name.toLowerCase().includes(term) ||
+        address.toLowerCase().includes(term) ||
+        id.toLowerCase().includes(term)
+      );
+    });
+  }, [allSocieties, debouncedSocietiesSearch]);
+
+  // Pagination for societies
+  const societiesTotalPages = Math.ceil(filteredSocieties.length / SOCIETIES_PER_PAGE);
+  const paginatedSocieties = useMemo(() => {
+    const start = (societiesPage - 1) * SOCIETIES_PER_PAGE;
+    return filteredSocieties.slice(start, start + SOCIETIES_PER_PAGE);
+  }, [filteredSocieties, societiesPage]);
+
+  useEffect(() => {
+    setSocietiesPage(1);
+  }, [debouncedSocietiesSearch]);
 
   const handleOpenCreate = () => {
     if (!canCreateSubAdmin) {
@@ -1459,12 +1520,101 @@ const Admins = () => {
                 </div>
 
                 <div className="detail-item">
-                  <span className="detail-label">Assigned Society</span>
+                  <span className="detail-label">Email</span>
                   <span className="detail-value">
-                    {typeof detailItem.society === "object"
-                      ? detailItem.society?.name || "N/A"
-                      : detailItem.society || "N/A"}
+                    {detailItem.email || "Not Provided"}
                   </span>
+                </div>
+
+                <div className="detail-item" style={{ gridColumn: "1 / -1" }}>
+                  <span className="detail-label">Assigned Societies</span>
+                  <div style={{ marginTop: "8px" }}>
+                    {(() => {
+                      const societiesArray = Array.isArray(detailItem.societies)
+                        ? detailItem.societies
+                        : detailItem.society
+                          ? [typeof detailItem.society === "object"
+                              ? detailItem.society
+                              : { name: detailItem.society }]
+                          : [];
+                      const societyCount = detailItem.assignedSocietiesCount || societiesArray.length;
+
+                      if (societyCount === 0) {
+                        return (
+                          <span className="detail-value text-muted">
+                            No societies assigned
+                          </span>
+                        );
+                      }
+
+                      if (societyCount <= 3) {
+                        return (
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                            {societiesArray.map((society, idx) => (
+                              <span
+                                key={idx}
+                                className="badge-category"
+                                style={{
+                                  backgroundColor: "rgba(99, 102, 241, 0.15)",
+                                  color: "#818cf8",
+                                  border: "1px solid rgba(99, 102, 241, 0.3)",
+                                  padding: "6px 12px",
+                                  borderRadius: "6px",
+                                  fontSize: "0.85rem",
+                                }}
+                              >
+                                {typeof society === "object"
+                                  ? society?.name || "Unknown Society"
+                                  : society}
+                              </span>
+                            ))}
+                          </div>
+                        );
+                      }
+
+                      // High volume view (4+ societies)
+                      return (
+                        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                          <span
+                            className="detail-value"
+                            style={{
+                              backgroundColor: "rgba(99, 102, 241, 0.15)",
+                              color: "#818cf8",
+                              border: "1px solid rgba(99, 102, 241, 0.3)",
+                              padding: "6px 12px",
+                              borderRadius: "6px",
+                              fontSize: "0.9rem",
+                              fontWeight: "600",
+                            }}
+                          >
+                            {societyCount.toLocaleString()} Societ{societyCount === 1 ? "y" : "ies"}
+                          </span>
+                          <button
+                            onClick={handleOpenSocietiesModal}
+                            style={{
+                              backgroundColor: "var(--primary)",
+                              color: "#fff",
+                              border: "none",
+                              padding: "6px 16px",
+                              borderRadius: "6px",
+                              fontSize: "0.85rem",
+                              cursor: "pointer",
+                              fontWeight: "500",
+                              transition: "all 0.2s",
+                            }}
+                            onMouseOver={(e) => {
+                              e.target.style.backgroundColor = "#6366f1";
+                            }}
+                            onMouseOut={(e) => {
+                              e.target.style.backgroundColor = "var(--primary)";
+                            }}
+                          >
+                            View All / Search
+                          </button>
+                        </div>
+                      );
+                    })()}
+                  </div>
                 </div>
 
                 <div className="detail-item">
@@ -1555,6 +1705,158 @@ const Admins = () => {
                 type="button"
                 className="btn btn-secondary"
                 onClick={() => setIsDetailOpen(false)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Societies View Modal */}
+      {isSocietiesModalOpen && (
+        <div className="modal-backdrop" onClick={() => setIsSocietiesModalOpen(false)}>
+          <div
+            className="modal-card"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: "800px", width: "94%" }}
+          >
+            <div className="modal-header">
+              <h3>All Assigned Societies</h3>
+              <button
+                className="icon-btn-close"
+                onClick={() => setIsSocietiesModalOpen(false)}
+                title="Close"
+              >
+                &times;
+              </button>
+            </div>
+
+            <div className="modal-body">
+              {/* Search Input */}
+              <div className="search-box" style={{ marginBottom: "20px" }}>
+                <input
+                  type="text"
+                  placeholder="Search societies by name, address, or ID..."
+                  value={societiesSearch}
+                  onChange={(e) => setSocietiesSearch(e.target.value)}
+                />
+                {societiesSearch && (
+                  <button
+                    className="search-clear-btn"
+                    onClick={() => setSocietiesSearch("")}
+                  >
+                    &times;
+                  </button>
+                )}
+              </div>
+
+              {/* Societies Table */}
+              {societiesLoading ? (
+                <div className="flex-center p-8">
+                  <LoadingSpinner text="Loading societies..." />
+                </div>
+              ) : paginatedSocieties.length === 0 ? (
+                <div className="card-box empty-state-box">
+                  <h3>No Societies Found</h3>
+                  <p className="text-muted">
+                    {societiesSearch
+                      ? "No societies match your search."
+                      : "No societies assigned to this admin."}
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="table-responsive card-box">
+                    <table className="data-table">
+                      <thead>
+                        <tr>
+                          <th>Society Name</th>
+                          <th>Society ID</th>
+                          <th>Address</th>
+                          <th>Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {paginatedSocieties.map((society, idx) => (
+                          <tr key={idx}>
+                            <td>
+                              <span className="font-semibold">
+                                {society?.name || "Unknown"}
+                              </span>
+                            </td>
+                            <td>
+                              <span className="text-muted" style={{ fontFamily: "monospace", fontSize: "0.85rem" }}>
+                                {society?.id || society?._id || "N/A"}
+                              </span>
+                            </td>
+                            <td>
+                              <span className="text-muted">
+                                {society?.address || "N/A"}
+                              </span>
+                            </td>
+                            <td>
+                              <StatusBadge status="Active" />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Pagination */}
+                  {societiesTotalPages > 1 && (
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        gap: "8px",
+                        marginTop: "20px",
+                      }}
+                    >
+                      <button
+                        className="btn btn-secondary"
+                        onClick={() => setSocietiesPage((p) => Math.max(1, p - 1))}
+                        disabled={societiesPage === 1}
+                        style={{ padding: "8px 16px", fontSize: "0.9rem" }}
+                      >
+                        Previous
+                      </button>
+                      <span style={{ color: "var(--text-muted)", fontSize: "0.9rem" }}>
+                        Page {societiesPage} of {societiesTotalPages}
+                      </span>
+                      <button
+                        className="btn btn-secondary"
+                        onClick={() => setSocietiesPage((p) => Math.min(societiesTotalPages, p + 1))}
+                        disabled={societiesPage === societiesTotalPages}
+                        style={{ padding: "8px 16px", fontSize: "0.9rem" }}
+                      >
+                        Next
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Total Count */}
+                  <div
+                    style={{
+                      textAlign: "center",
+                      marginTop: "16px",
+                      color: "var(--text-muted)",
+                      fontSize: "0.85rem",
+                    }}
+                  >
+                    Showing {paginatedSocieties.length} of {filteredSocieties.length} societies
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="modal-footer">
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setIsSocietiesModalOpen(false)}
               >
                 Close
               </button>

@@ -48,6 +48,7 @@ export const deleteSociety = async (id) => extractData(await api.delete(`/admin/
 // ============================================================================
 export const getAdmins = async (params = {}, options = {}) => extractData(await api.get("/admin/admins", { params, ...options }));
 export const getAdminById = async (id) => extractData(await api.get(`/admin/admins/${id}`));
+export const getAdminSocieties = async (id, params = {}) => extractData(await api.get(`/admin/admins/${id}/societies`, { params }));
 export const createAdmin = async (data) => extractData(await api.post("/admin/admins", data));
 export const createSubAdmin = async (data) => extractData(await api.post("/admin/sub-admins", data));
 export const createSecretary = async (data) => extractData(await api.post("/admin/secretaries", data));
@@ -124,4 +125,5 @@ export const addAdminWalletFunds = async (id, amount) => extractData(await api.p
 export const deductAdminWalletFunds = async (id, amount) => extractData(await api.post(`/admin/admins/${id}/wallet/deduct`, { amount }));
 
 export const createSuperSubAdmin = async (data) => extractData(await api.post("/admin/super-sub-admins", data));
+export const updateSuperSubAdminStatus = async (id, status) => extractData(await api.patch(`/admin/super-sub-admins/${id}/status`, { status }));
 

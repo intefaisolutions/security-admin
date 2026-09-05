@@ -12,6 +12,7 @@ import { useDebounce } from "../hooks/useDebounce";
 import LoadingSpinner from "../components/LoadingSpinner";
 import StatusBadge from "../components/StatusBadge";
 import ConfirmDialog from "../components/ConfirmDialog";
+import Toast from "../components/Toast";
 import { getErrorMessage } from "../utils/getErrorMessage";
 
 const LIMIT_FIELDS = [
@@ -100,6 +101,9 @@ const Plans = () => {
   // Delete State
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Toast State
+  const [toast, setToast] = useState(null);
 
   const fetchPlansList = async () => {
     if (!isSuperAdmin && user?.role !== "admin") return;
@@ -291,9 +295,16 @@ const Plans = () => {
       await deletePlan(deleteTarget._id || deleteTarget.id);
       setDeleteTarget(null);
       await fetchPlansList();
+      setToast({
+        message: "Plan archived/deleted successfully. Existing active subscribers will remain unaffected until their validity expires.",
+        type: "success"
+      });
     } catch (err) {
       console.error("Failed to delete plan:", err);
-      alert(getErrorMessage(err, "Failed to delete plan."));
+      setToast({
+        message: getErrorMessage(err, "Failed to delete plan."),
+        type: "error"
+      });
     } finally {
       setIsDeleting(false);
     }
@@ -303,10 +314,16 @@ const Plans = () => {
     try {
       await buyPlan(planId, cycle);
       await fetchMySubscription();
-      alert("Plan purchased successfully!");
+      setToast({
+        message: "Plan purchased successfully!",
+        type: "success"
+      });
     } catch (err) {
       console.error("Failed to buy plan:", err);
-      alert(getErrorMessage(err, "Failed to purchase plan."));
+      setToast({
+        message: getErrorMessage(err, "Failed to purchase plan."),
+        type: "error"
+      });
     }
   };
 
@@ -1042,12 +1059,21 @@ const Plans = () => {
       <ConfirmDialog
         isOpen={!!deleteTarget}
         title="Delete Plan"
-        message={`Are you sure you want to delete plan "${deleteTarget?.name || deleteTarget?.planName || "this plan"}"?`}
+        message={`Are you sure you want to delete "${deleteTarget?.name || deleteTarget?.planName || "this plan"}"? Note: Existing subscribers will continue using this plan until their current validity expires. New admins will no longer see or purchase this plan.`}
         confirmText="Delete Plan"
         isDeleting={isDeleting}
         onConfirm={handleConfirmDelete}
         onCancel={() => setDeleteTarget(null)}
       />
+
+      {/* Toast Notification */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   );
 };

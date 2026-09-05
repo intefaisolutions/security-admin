@@ -46,6 +46,7 @@ const PLAN_CYCLE_OPTIONS = [
 const SubAdmins = () => {
   const { user } = useAuth();
   const isSuperAdmin = user?.role === "super_admin";
+  const isSuperSubAdmin = user?.role === "super_sub_admin";
   const canManageAdmins = [
     "super_admin",
     "super_sub_admin",
@@ -323,7 +324,7 @@ const SubAdmins = () => {
       }
     }
     if (
-      isSuperAdmin &&
+      (isSuperAdmin || isSuperSubAdmin) &&
       formRole !== "admin" &&
       formRole !== "super_sub_admin" &&
       !editingAdmin &&
@@ -440,7 +441,7 @@ const SubAdmins = () => {
             email: formEmail.trim(),
             password: formPassword,
             permissions: formPermissions,
-            assignedAdminId: isSuperAdmin ? formAssignedAdmin : undefined,
+            assignedAdminId: (isSuperAdmin || isSuperSubAdmin) ? formAssignedAdmin : undefined,
             societies: formSocieties,
             society: formSocieties[0],
           });
@@ -912,7 +913,7 @@ const SubAdmins = () => {
                     </div>
                   </div>
                 )}
-                {isSuperAdmin &&
+                {(isSuperAdmin || isSuperSubAdmin) &&
                   !editingAdmin &&
                   formRole !== "admin" &&
                   formRole !== "super_sub_admin" && (
